@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 import { SignedIn, SignedOut, useAuth } from "@/auth/clerk";
-import { Activity as ActivityIcon } from "lucide-react";
+import { Activity as ActivityIcon, Bot, MessageSquare, Radio } from "lucide-react";
 
 import { ApiError } from "@/api/mutator";
 import { streamAgentsApiV1AgentsStreamGet } from "@/api/generated/agents/agents";
@@ -45,6 +45,10 @@ import { apiDatetimeToMs, parseApiDatetime } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 import { usePageActive } from "@/hooks/usePageActive";
 
+export const dynamic = "force-dynamic";
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+
 const SSE_RECONNECT_BACKOFF = {
   baseMs: 1_000,
   factor: 2,
@@ -57,7 +61,16 @@ const MAX_FEED_ITEMS = 300;
 const PAGED_LIMIT = 200;
 const PAGED_MAX = 1000;
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
 type Agent = AgentRead & { status: string };
+
+type AgentTaskInfo = {
+  title: string;
+  boardName: string | null;
+  eventType: string;
+  updatedAt: string;
+};
 
 type TaskEventType =
   | "task.comment"
@@ -103,6 +116,8 @@ type TaskMeta = {
 
 type ActivityRouteParams = Record<string, string>;
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 const ACTIVITY_FEED_PATH = "/activity";
 
 const TASK_EVENT_TYPES = new Set<TaskEventType>([
@@ -124,6 +139,19 @@ const formatShortTimestamp = (value: string) => {
     hour: "2-digit",
     minute: "2-digit",
   });
+};
+
+const formatRelativeTime = (value: string): string => {
+  const date = parseApiDatetime(value);
+  if (!date) return "—";
+  const diffMs = Date.now() - date.getTime();
+  const diffSecs = Math.floor(diffMs / 1000);
+  if (diffSecs < 60) return "just now";
+  const diffMins = Math.floor(diffSecs / 60);
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHours = Math.floor(diffMins / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return formatShortTimestamp(value);
 };
 
 const normalizeRouteParams = (
@@ -217,7 +245,7 @@ const roleFromAgent = (agent?: Agent | null): string | null => {
   if (!agent) return null;
   const profile = agent.identity_profile;
   if (!profile || typeof profile !== "object") return null;
-  const role = profile.role;
+  const role = (profile as Record<string, unknown>).role;
   if (typeof role !== "string") return null;
   const trimmed = role.trim();
   return trimmed || null;
@@ -241,47 +269,273 @@ const eventLabel = (eventType: FeedEventType): string => {
 };
 
 const eventPillClass = (eventType: FeedEventType): string => {
-  if (eventType === "task.comment") {
-    return "border-blue-200 bg-blue-50 text-blue-700";
-  }
-  if (eventType === "task.created") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  }
-  if (eventType === "task.status_changed") {
-    return "border-amber-200 bg-amber-50 text-amber-700";
-  }
-  if (eventType === "board.chat") {
-    return "border-teal-200 bg-teal-50 text-teal-700";
-  }
-  if (eventType === "board.command") {
-    return "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700";
-  }
-  if (eventType === "agent.created") {
-    return "border-violet-200 bg-violet-50 text-violet-700";
-  }
-  if (eventType === "agent.online") {
-    return "border-lime-200 bg-lime-50 text-lime-700";
-  }
-  if (eventType === "agent.offline") {
-    return "border-slate-300 bg-slate-100 text-slate-700";
-  }
-  if (eventType === "agent.updated") {
-    return "border-indigo-200 bg-indigo-50 text-indigo-700";
-  }
-  if (eventType === "approval.created") {
-    return "border-cyan-200 bg-cyan-50 text-cyan-700";
-  }
-  if (eventType === "approval.updated") {
-    return "border-sky-200 bg-sky-50 text-sky-700";
-  }
-  if (eventType === "approval.approved") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  }
-  if (eventType === "approval.rejected") {
-    return "border-rose-200 bg-rose-50 text-rose-700";
-  }
+  if (eventType === "task.comment") return "border-blue-200 bg-blue-50 text-blue-700";
+  if (eventType === "task.created") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (eventType === "task.status_changed") return "border-amber-200 bg-amber-50 text-amber-700";
+  if (eventType === "board.chat") return "border-teal-200 bg-teal-50 text-teal-700";
+  if (eventType === "board.command") return "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700";
+  if (eventType === "agent.created") return "border-violet-200 bg-violet-50 text-violet-700";
+  if (eventType === "agent.online") return "border-lime-200 bg-lime-50 text-lime-700";
+  if (eventType === "agent.offline") return "border-slate-300 bg-slate-100 text-slate-700";
+  if (eventType === "agent.updated") return "border-indigo-200 bg-indigo-50 text-indigo-700";
+  if (eventType === "approval.created") return "border-cyan-200 bg-cyan-50 text-cyan-700";
+  if (eventType === "approval.updated") return "border-sky-200 bg-sky-50 text-sky-700";
+  if (eventType === "approval.approved") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (eventType === "approval.rejected") return "border-rose-200 bg-rose-50 text-rose-700";
   return "border-slate-200 bg-slate-100 text-slate-700";
 };
+
+// ─── Agent Card ───────────────────────────────────────────────────────────────
+
+const AgentCard = memo(function AgentCard({
+  agent,
+  taskInfo,
+  isLead,
+}: {
+  agent: Agent;
+  taskInfo?: AgentTaskInfo;
+  isLead?: boolean;
+}) {
+  const status = normalizeStatus(agent.status);
+  const isOnline = status === "online";
+  const role = roleFromAgent(agent);
+  const avatar = (agent.name[0] ?? "A").toUpperCase();
+  const boardHref = agent.board_id
+    ? `/boards/${encodeURIComponent(agent.board_id)}`
+    : null;
+
+  const taskVerb =
+    taskInfo?.eventType === "task.comment"
+      ? "Commented on"
+      : taskInfo?.eventType === "task.created"
+        ? "Created"
+        : taskInfo?.eventType === "task.status_changed"
+          ? "Updated status of"
+          : "Working on";
+
+  return (
+    <div
+      className={cn(
+        "relative flex flex-col rounded-xl border bg-white p-4 shadow-sm transition duration-200",
+        isLead
+          ? "border-blue-200 ring-1 ring-blue-100 shadow-blue-50"
+          : "border-slate-200 hover:border-slate-300",
+      )}
+    >
+      {/* Live status indicator */}
+      <div className="absolute right-3 top-3 flex items-center gap-1.5">
+        <span className="relative flex h-2 w-2">
+          {isOnline && (
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+          )}
+          <span
+            className={cn(
+              "relative inline-flex h-2 w-2 rounded-full",
+              isOnline ? "bg-emerald-500" : "bg-slate-300",
+            )}
+          />
+        </span>
+        <span
+          className={cn(
+            "text-[10px] font-semibold uppercase tracking-wide",
+            isOnline ? "text-emerald-600" : "text-slate-400",
+          )}
+        >
+          {isOnline ? "Online" : "Offline"}
+        </span>
+      </div>
+
+      {/* Avatar + name */}
+      <div className="flex items-start gap-3 pr-20">
+        <div
+          className={cn(
+            "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold",
+            isLead
+              ? "bg-blue-100 text-blue-700"
+              : isOnline
+                ? "bg-emerald-100 text-emerald-700"
+                : "bg-slate-100 text-slate-500",
+          )}
+        >
+          {avatar}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <p className="truncate text-sm font-semibold text-slate-900">
+              {agent.name}
+            </p>
+            {isLead && (
+              <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-blue-700">
+                Lead
+              </span>
+            )}
+          </div>
+          {role ? (
+            <p className="mt-0.5 truncate text-[11px] text-slate-500">{role}</p>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Current task */}
+      <div className="mt-3 min-h-[52px] rounded-lg bg-slate-50 px-3 py-2">
+        {taskInfo ? (
+          <>
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              {taskVerb}
+            </p>
+            <p className="line-clamp-2 text-xs font-medium text-slate-700">
+              {taskInfo.title}
+            </p>
+            {taskInfo.boardName ? (
+              <p className="mt-0.5 text-[10px] text-slate-400">
+                {taskInfo.boardName}
+              </p>
+            ) : null}
+          </>
+        ) : (
+          <p className="flex h-full items-center text-xs italic text-slate-400">
+            No recent task activity
+          </p>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="mt-2 flex items-center justify-between gap-2">
+        {agent.last_seen_at ? (
+          <span className="text-[10px] text-slate-400">
+            {formatRelativeTime(agent.last_seen_at)}
+          </span>
+        ) : (
+          <span />
+        )}
+        {boardHref ? (
+          <Link
+            href={boardHref}
+            className="text-[10px] font-medium text-slate-500 hover:text-slate-900 hover:underline"
+          >
+            View board →
+          </Link>
+        ) : null}
+      </div>
+    </div>
+  );
+});
+
+AgentCard.displayName = "AgentCard";
+
+// ─── Agent Topology Panel ─────────────────────────────────────────────────────
+
+const AgentTopologyPanel = memo(function AgentTopologyPanel({
+  agents,
+  agentTaskMap,
+}: {
+  agents: Agent[];
+  agentTaskMap: Map<string, AgentTaskInfo>;
+}) {
+  const leadAgents = useMemo(
+    () => agents.filter((a) => a.is_board_lead || a.is_gateway_main),
+    [agents],
+  );
+  const workerAgents = useMemo(
+    () => agents.filter((a) => !a.is_board_lead && !a.is_gateway_main),
+    [agents],
+  );
+  const onlineCount = useMemo(
+    () => agents.filter((a) => normalizeStatus(a.status) === "online").length,
+    [agents],
+  );
+
+  if (agents.length === 0) {
+    return (
+      <div className="mb-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center gap-2 text-slate-400">
+          <Bot className="h-4 w-4" />
+          <p className="text-sm">No agents registered yet.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-6 rounded-xl border border-slate-200 bg-white shadow-sm">
+      {/* Panel header */}
+      <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+        <div className="flex items-center gap-2">
+          <Bot className="h-4 w-4 text-slate-500" />
+          <span className="text-sm font-semibold text-slate-700">
+            Agent topology
+          </span>
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+            {agents.length} agent{agents.length !== 1 ? "s" : ""}
+          </span>
+        </div>
+        {onlineCount > 0 ? (
+          <div className="flex items-center gap-1.5">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            </span>
+            <span className="text-[11px] font-medium text-emerald-600">
+              {onlineCount} online
+            </span>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="p-4">
+        {/* Lead agents row */}
+        {leadAgents.length > 0 ? (
+          <div className="mb-4">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+              Lead
+            </p>
+            <div
+              className={cn(
+                "grid gap-3",
+                leadAgents.length === 1
+                  ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+                  : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+              )}
+            >
+              {leadAgents.map((agent) => (
+                <AgentCard
+                  key={agent.id}
+                  agent={agent}
+                  taskInfo={agentTaskMap.get(agent.id)}
+                  isLead
+                />
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {/* Worker agents grid */}
+        {workerAgents.length > 0 ? (
+          <div>
+            {leadAgents.length > 0 ? (
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                Workers
+              </p>
+            ) : null}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {workerAgents.map((agent) => (
+                <AgentCard
+                  key={agent.id}
+                  agent={agent}
+                  taskInfo={agentTaskMap.get(agent.id)}
+                />
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+});
+
+AgentTopologyPanel.displayName = "AgentTopologyPanel";
+
+// ─── Feed Card ────────────────────────────────────────────────────────────────
 
 const FeedCard = memo(function FeedCard({
   item,
@@ -292,21 +546,53 @@ const FeedCard = memo(function FeedCard({
 }) {
   const message = (item.message ?? "").trim();
   const authorAvatar = (item.actor_name[0] ?? "A").toUpperCase();
+  const isChat =
+    item.event_type === "board.chat" || item.event_type === "board.command";
+  const isAgentStatus =
+    item.event_type === "agent.online" || item.event_type === "agent.offline";
+  const isOnlineEvent = item.event_type === "agent.online";
 
   return (
     <div
       id={feedItemElementId(item.id)}
       className={cn(
-        "scroll-mt-28 rounded-xl border bg-white p-4 transition",
+        "scroll-mt-28 rounded-xl border bg-white p-4 transition duration-200",
         isHighlighted
           ? "border-blue-300 ring-2 ring-blue-200"
-          : "border-slate-200 hover:border-slate-300",
+          : isChat
+            ? "border-teal-100 hover:border-teal-200"
+            : "border-slate-200 hover:border-slate-300",
       )}
     >
       <div className="flex items-start gap-3">
-        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-700">
-          {authorAvatar}
+        {/* Avatar */}
+        <div
+          className={cn(
+            "relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold",
+            isChat
+              ? "bg-teal-100 text-teal-700"
+              : isAgentStatus
+                ? isOnlineEvent
+                  ? "bg-lime-100 text-lime-700"
+                  : "bg-slate-100 text-slate-500"
+                : "bg-slate-100 text-slate-700",
+          )}
+        >
+          {isChat ? (
+            <MessageSquare className="h-4 w-4" />
+          ) : (
+            authorAvatar
+          )}
+          {/* Online pulse dot on avatar for agent.online */}
+          {isOnlineEvent && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-2.5 w-2.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
+            </span>
+          )}
         </div>
+
+        {/* Content */}
         <div className="min-w-0 flex-1">
           <div className="min-w-0">
             {item.context_href ? (
@@ -328,6 +614,7 @@ const FeedCard = memo(function FeedCard({
                 {item.title}
               </p>
             )}
+
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-500">
               <span
                 className={cn(
@@ -369,8 +656,15 @@ const FeedCard = memo(function FeedCard({
           </div>
         </div>
       </div>
+
+      {/* Message body */}
       {message ? (
-        <div className="mt-3 select-text cursor-text text-sm leading-relaxed text-slate-900 break-words">
+        <div
+          className={cn(
+            "mt-3 select-text cursor-text text-sm leading-relaxed break-words",
+            isChat ? "text-slate-700" : "text-slate-900",
+          )}
+        >
           <Markdown content={message} variant="basic" />
         </div>
       ) : (
@@ -382,6 +676,8 @@ const FeedCard = memo(function FeedCard({
 
 FeedCard.displayName = "FeedCard";
 
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function ActivityPage() {
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => {
@@ -391,13 +687,17 @@ export default function ActivityPage() {
   const { isSignedIn } = useAuth();
   const searchParams = useSearchParams();
   const isPageActive = usePageActive();
+
   const selectedEventId = useMemo(() => {
     const value = searchParams.get("eventId");
     if (!value) return null;
     const trimmed = value.trim();
     return trimmed.length > 0 ? trimmed : null;
   }, [searchParams]);
-  const [highlightedFeedItemId, setHighlightedFeedItemId] = useState<string | null>(null);
+
+  const [highlightedFeedItemId, setHighlightedFeedItemId] = useState<
+    string | null
+  >(null);
 
   const membershipQuery = useGetMyMembershipApiV1OrganizationsMeMemberGet<
     getMyMembershipApiV1OrganizationsMeMemberGetResponse,
@@ -410,21 +710,35 @@ export default function ActivityPage() {
       retry: false,
     },
   });
+
   const isOrgAdmin = useMemo(() => {
     const member =
       membershipQuery.data?.status === 200 ? membershipQuery.data.data : null;
     return member ? ["owner", "admin"].includes(member.role) : false;
   }, [membershipQuery.data]);
+
   const currentUserDisplayName = useMemo(() => {
     const member =
       membershipQuery.data?.status === 200 ? membershipQuery.data.data : null;
     return resolveMemberDisplayName(member, DEFAULT_HUMAN_LABEL);
   }, [membershipQuery.data]);
 
+  // ── Feed state ──────────────────────────────────────────────────────────────
+
   const [isFeedLoading, setIsFeedLoading] = useState(false);
   const [feedError, setFeedError] = useState<string | null>(null);
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
   const [boards, setBoards] = useState<BoardRead[]>([]);
+
+  // ── Agent topology state ────────────────────────────────────────────────────
+
+  const [agentsState, setAgentsState] = useState<Agent[]>([]);
+  const agentLatestTaskRef = useRef<Map<string, AgentTaskInfo>>(new Map());
+  const [agentTaskMap, setAgentTaskMap] = useState<Map<string, AgentTaskInfo>>(
+    new Map(),
+  );
+
+  // ── Refs ────────────────────────────────────────────────────────────────────
 
   const feedItemsRef = useRef<FeedItem[]>([]);
   const seenIdsRef = useRef<Set<string>>(new Set());
@@ -438,6 +752,8 @@ export default function ActivityPage() {
   }, [feedItems]);
 
   const boardIds = useMemo(() => boards.map((board) => board.id), [boards]);
+
+  // ── Callbacks ───────────────────────────────────────────────────────────────
 
   const pushFeedItem = useCallback((item: FeedItem) => {
     setFeedItems((prev) => {
@@ -456,18 +772,10 @@ export default function ActivityPage() {
       if (agentId) {
         const agent = agentsByIdRef.current.get(agentId);
         if (agent) {
-          return {
-            id: agent.id,
-            name: agent.name,
-            role: roleFromAgent(agent),
-          };
+          return { id: agent.id, name: agent.name, role: roleFromAgent(agent) };
         }
       }
-      return {
-        id: agentId ?? null,
-        name: fallbackName,
-        role: null,
-      };
+      return { id: agentId ?? null, name: fallbackName, role: null };
     },
     [currentUserDisplayName],
   );
@@ -483,10 +791,15 @@ export default function ActivityPage() {
       fallbackBoardId: string,
     ) => {
       const boardId = task.board_id ?? fallbackBoardId;
-      taskMetaByIdRef.current.set(task.id, {
-        title: task.title,
-        boardId,
-      });
+      taskMetaByIdRef.current.set(task.id, { title: task.title, boardId });
+    },
+    [],
+  );
+
+  const updateAgentTask = useCallback(
+    (agentId: string, info: AgentTaskInfo) => {
+      agentLatestTaskRef.current.set(agentId, info);
+      setAgentTaskMap(new Map(agentLatestTaskRef.current));
     },
     [],
   );
@@ -531,14 +844,17 @@ export default function ActivityPage() {
         board_href: buildBoardHref(effectiveRouteParams, boardId),
         task_id: taskId,
         task_title: meta?.title ?? null,
-        title:
-          meta?.title ?? (taskId ? "Unknown task" : "Task activity"),
-        context_href: buildRouteHref(effectiveRouteName, effectiveRouteParams, {
-          eventId: event.id,
-          eventType: event.event_type,
-          createdAt: event.created_at,
-          taskId,
-        }),
+        title: meta?.title ?? (taskId ? "Unknown task" : "Task activity"),
+        context_href: buildRouteHref(
+          effectiveRouteName,
+          effectiveRouteParams,
+          {
+            eventId: event.id,
+            eventType: event.event_type,
+            createdAt: event.created_at,
+            taskId,
+          },
+        ),
       };
     },
     [boardNameForId, currentUserDisplayName, resolveAuthor],
@@ -570,8 +886,7 @@ export default function ActivityPage() {
         board_href: buildBoardHref(routeParams, boardId),
         task_id: taskId,
         task_title: meta?.title ?? null,
-        title:
-          meta?.title ?? (taskId ? "Unknown task" : "Task activity"),
+        title: meta?.title ?? (taskId ? "Unknown task" : "Task activity"),
         context_href: buildRouteHref("board", routeParams, {
           eventId: comment.id,
           eventType: "task.comment",
@@ -741,9 +1056,7 @@ export default function ActivityPage() {
               ? `${agent.name} is offline.`
               : `${agent.name} updated (${humanizeStatus(nextStatus)}).`;
       const boardId = agent.board_id ?? null;
-      const routeParams: ActivityRouteParams = boardId
-        ? { boardId }
-        : {};
+      const routeParams: ActivityRouteParams = boardId ? { boardId } : {};
 
       return {
         id: `agent:${agent.id}:${isSnapshot ? "snapshot" : kind}:${stamp}`,
@@ -787,17 +1100,22 @@ export default function ActivityPage() {
     [],
   );
 
+  // ── Effect: Initial load ────────────────────────────────────────────────────
+
   useEffect(() => {
     if (!isSignedIn) {
       setBoards([]);
       setFeedItems([]);
       setFeedError(null);
       setIsFeedLoading(false);
+      setAgentsState([]);
+      setAgentTaskMap(new Map());
       seenIdsRef.current = new Set();
       boardsByIdRef.current = new Map();
       taskMetaByIdRef.current = new Map();
       agentsByIdRef.current = new Map();
       approvalsByIdRef.current = new Map();
+      agentLatestTaskRef.current = new Map();
       return;
     }
 
@@ -819,9 +1137,7 @@ export default function ActivityPage() {
           }
           const items = result.data.items ?? [];
           nextBoards.push(...items);
-          if (items.length < PAGED_LIMIT) {
-            break;
-          }
+          if (items.length < PAGED_LIMIT) break;
         }
 
         if (cancelled) return;
@@ -833,7 +1149,6 @@ export default function ActivityPage() {
         const seeded: FeedItem[] = [];
         const seedSeen = new Set<string>();
 
-        // Snapshot seeding gives org-level approvals/agents/chat and task metadata.
         const snapshotResults = await Promise.allSettled(
           nextBoards.map((board) =>
             getBoardSnapshotApiV1BoardsBoardIdSnapshotGet(board.id),
@@ -879,6 +1194,11 @@ export default function ActivityPage() {
           });
         });
 
+        // Sync agent topology state after snapshot
+        if (!cancelled) {
+          setAgentsState(Array.from(agentsByIdRef.current.values()));
+        }
+
         for (let offset = 0; offset < PAGED_MAX; offset += PAGED_LIMIT) {
           const result = await listActivityApiV1ActivityGet({
             limit: PAGED_LIMIT,
@@ -895,9 +1215,7 @@ export default function ActivityPage() {
             seedSeen.add(mapped.id);
             seeded.push(mapped);
           }
-          if (items.length < PAGED_LIMIT) {
-            break;
-          }
+          if (items.length < PAGED_LIMIT) break;
         }
 
         seeded.sort((a, b) => {
@@ -924,13 +1242,9 @@ export default function ActivityPage() {
     return () => {
       cancelled = true;
     };
-  }, [
-    isSignedIn,
-    mapAgentEvent,
-    mapApprovalEvent,
-    mapBoardChat,
-    mapTaskActivity,
-  ]);
+  }, [isSignedIn, mapAgentEvent, mapApprovalEvent, mapBoardChat, mapTaskActivity]);
+
+  // ── Effect: Task SSE stream ─────────────────────────────────────────────────
 
   useEffect(() => {
     if (!isPageActive) return;
@@ -976,9 +1290,7 @@ export default function ActivityPage() {
           while (!cancelled) {
             const { value, done } = await reader.read();
             if (done) break;
-            if (value && value.length) {
-              backoff.reset();
-            }
+            if (value && value.length) backoff.reset();
             buffer += decoder.decode(value, { stream: true });
             buffer = buffer.replace(/\r\n/g, "\n");
             let boundary = buffer.indexOf("\n\n");
@@ -1015,11 +1327,34 @@ export default function ActivityPage() {
                       }
                       pushFeedItem(mapped);
                     }
+                    // Track per-agent latest task for topology panel
+                    if (payload.activity.agent_id && payload.task) {
+                      updateAgentTask(payload.activity.agent_id, {
+                        title: payload.task.title,
+                        boardName: boardNameForId(boardId),
+                        eventType: payload.activity.event_type,
+                        updatedAt: payload.activity.created_at,
+                      });
+                    }
                   } else if (
                     payload.type === "task.comment" &&
                     payload.comment
                   ) {
                     pushFeedItem(mapTaskComment(payload.comment, boardId));
+                    // Track per-agent latest task for comment events
+                    if (payload.comment.agent_id) {
+                      const meta = payload.comment.task_id
+                        ? taskMetaByIdRef.current.get(payload.comment.task_id)
+                        : null;
+                      if (meta) {
+                        updateAgentTask(payload.comment.agent_id, {
+                          title: meta.title,
+                          boardName: boardNameForId(boardId),
+                          eventType: "task.comment",
+                          updatedAt: payload.comment.created_at,
+                        });
+                      }
+                    }
                   }
                 } catch {
                   // Ignore malformed payloads.
@@ -1051,12 +1386,9 @@ export default function ActivityPage() {
 
       cleanups.push(() => {
         abortController.abort();
-        if (connectTimer !== undefined) {
-          window.clearTimeout(connectTimer);
-        }
-        if (reconnectTimeout !== undefined) {
+        if (connectTimer !== undefined) window.clearTimeout(connectTimer);
+        if (reconnectTimeout !== undefined)
           window.clearTimeout(reconnectTimeout);
-        }
       });
     });
 
@@ -1073,8 +1405,11 @@ export default function ActivityPage() {
     mapTaskActivity,
     mapTaskComment,
     pushFeedItem,
+    updateAgentTask,
     updateTaskMeta,
   ]);
+
+  // ── Effect: Approval SSE stream ─────────────────────────────────────────────
 
   useEffect(() => {
     if (!isPageActive) return;
@@ -1121,9 +1456,7 @@ export default function ActivityPage() {
           while (!cancelled) {
             const { value, done } = await reader.read();
             if (done) break;
-            if (value && value.length) {
-              backoff.reset();
-            }
+            if (value && value.length) backoff.reset();
             buffer += decoder.decode(value, { stream: true });
             buffer = buffer.replace(/\r\n/g, "\n");
             let boundary = buffer.indexOf("\n\n");
@@ -1186,12 +1519,9 @@ export default function ActivityPage() {
 
       cleanups.push(() => {
         abortController.abort();
-        if (connectTimer !== undefined) {
-          window.clearTimeout(connectTimer);
-        }
-        if (reconnectTimeout !== undefined) {
+        if (connectTimer !== undefined) window.clearTimeout(connectTimer);
+        if (reconnectTimeout !== undefined)
           window.clearTimeout(reconnectTimeout);
-        }
       });
     });
 
@@ -1207,6 +1537,8 @@ export default function ActivityPage() {
     mapApprovalEvent,
     pushFeedItem,
   ]);
+
+  // ── Effect: Board memory (chat) SSE stream ──────────────────────────────────
 
   useEffect(() => {
     if (!isPageActive) return;
@@ -1255,9 +1587,7 @@ export default function ActivityPage() {
           while (!cancelled) {
             const { value, done } = await reader.read();
             if (done) break;
-            if (value && value.length) {
-              backoff.reset();
-            }
+            if (value && value.length) backoff.reset();
             buffer += decoder.decode(value, { stream: true });
             buffer = buffer.replace(/\r\n/g, "\n");
             let boundary = buffer.indexOf("\n\n");
@@ -1312,12 +1642,9 @@ export default function ActivityPage() {
 
       cleanups.push(() => {
         abortController.abort();
-        if (connectTimer !== undefined) {
-          window.clearTimeout(connectTimer);
-        }
-        if (reconnectTimeout !== undefined) {
+        if (connectTimer !== undefined) window.clearTimeout(connectTimer);
+        if (reconnectTimeout !== undefined)
           window.clearTimeout(reconnectTimeout);
-        }
       });
     });
 
@@ -1333,6 +1660,8 @@ export default function ActivityPage() {
     mapBoardChat,
     pushFeedItem,
   ]);
+
+  // ── Effect: Agent SSE stream ────────────────────────────────────────────────
 
   useEffect(() => {
     if (!isPageActive) return;
@@ -1369,9 +1698,7 @@ export default function ActivityPage() {
         while (!cancelled) {
           const { value, done } = await reader.read();
           if (done) break;
-          if (value && value.length) {
-            backoff.reset();
-          }
+          if (value && value.length) backoff.reset();
           buffer += decoder.decode(value, { stream: true });
           buffer = buffer.replace(/\r\n/g, "\n");
           let boundary = buffer.indexOf("\n\n");
@@ -1396,6 +1723,8 @@ export default function ActivityPage() {
                   const previous =
                     agentsByIdRef.current.get(normalized.id) ?? null;
                   agentsByIdRef.current.set(normalized.id, normalized);
+                  // Sync topology panel state
+                  setAgentsState(Array.from(agentsByIdRef.current.values()));
                   const mapped = mapAgentEvent(normalized, previous, false);
                   if (mapped) {
                     pushFeedItem(mapped);
@@ -1441,6 +1770,8 @@ export default function ActivityPage() {
     pushFeedItem,
   ]);
 
+  // ── Derived state ───────────────────────────────────────────────────────────
+
   const orderedFeed = useMemo(() => {
     return [...feedItems].sort((a, b) => {
       const aTime = apiDatetimeToMs(a.created_at) ?? 0;
@@ -1457,7 +1788,8 @@ export default function ActivityPage() {
     if (directMatch) return directMatch.id;
     const fallbackMatch = orderedFeed.find(
       (item) =>
-        item.id === selectedEventId || item.id === `activity:${selectedEventId}`,
+        item.id === selectedEventId ||
+        item.id === `activity:${selectedEventId}`,
     );
     return fallbackMatch?.id ?? null;
   }, [orderedFeed, selectedEventId]);
@@ -1470,7 +1802,9 @@ export default function ActivityPage() {
 
     setHighlightedFeedItemId(selectedFeedItemId);
     const scrollTimeout = window.setTimeout(() => {
-      const element = document.getElementById(feedItemElementId(selectedFeedItemId));
+      const element = document.getElementById(
+        feedItemElementId(selectedFeedItemId),
+      );
       if (!element) return;
       element.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 50);
@@ -1491,6 +1825,14 @@ export default function ActivityPage() {
     selectedEventId && !selectedFeedItemId && !isFeedLoading && !feedError,
   );
 
+  const onlineAgentCount = useMemo(
+    () =>
+      agentsState.filter((a) => normalizeStatus(a.status) === "online").length,
+    [agentsState],
+  );
+
+  // ── Render ──────────────────────────────────────────────────────────────────
+
   return (
     <DashboardShell>
       {isMounted ? (
@@ -1507,31 +1849,72 @@ export default function ActivityPage() {
           <SignedIn>
             <DashboardSidebar />
             <main className="flex-1 overflow-y-auto bg-slate-50">
+              {/* Page header */}
               <div className="sticky top-0 z-30 border-b border-slate-200 bg-white">
                 <div className="px-4 py-4 md:px-8 md:py-6">
                   <div className="flex flex-wrap items-center justify-between gap-4">
                     <div>
                       <div className="flex items-center gap-2">
                         <ActivityIcon className="h-5 w-5 text-slate-600" />
-                        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+                        <h1 className="font-heading text-2xl font-semibold tracking-tight text-slate-900">
                           Live feed
                         </h1>
+                        {/* Live pulse indicator */}
+                        <span className="flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5">
+                          <span className="relative flex h-1.5 w-1.5">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          </span>
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600">
+                            Live
+                          </span>
+                        </span>
                       </div>
                       <p className="mt-1 text-sm text-slate-500">
                         Realtime task, approval, agent, and board-chat activity
                         across all boards.
+                        {onlineAgentCount > 0 ? (
+                          <span className="ml-2 font-medium text-emerald-600">
+                            {onlineAgentCount} agent
+                            {onlineAgentCount !== 1 ? "s" : ""} online.
+                          </span>
+                        ) : null}
                       </p>
+                    </div>
+                    {/* Live stream indicator */}
+                    <div className="flex items-center gap-1.5 text-slate-400">
+                      <Radio className="h-3.5 w-3.5" />
+                      <span className="text-xs">Streaming</span>
                     </div>
                   </div>
                 </div>
               </div>
 
               <div className="p-4 md:p-8">
+                {/* Agent topology section */}
+                {agentsState.length > 0 ? (
+                  <AgentTopologyPanel
+                    agents={agentsState}
+                    agentTaskMap={agentTaskMap}
+                  />
+                ) : null}
+
+                {/* Deep-link notice */}
                 {hasUnresolvedDeepLink ? (
                   <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
-                    Requested activity item is not in the current feed window yet.
+                    Requested activity item is not in the current feed window
+                    yet.
                   </div>
                 ) : null}
+
+                {/* Feed section header */}
+                <div className="mb-3 flex items-center gap-2">
+                  <ActivityIcon className="h-3.5 w-3.5 text-slate-400" />
+                  <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                    Event stream
+                  </span>
+                </div>
+
                 <ActivityFeed
                   isLoading={isFeedLoading}
                   errorMessage={feedError}
