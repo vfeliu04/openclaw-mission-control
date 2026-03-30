@@ -46,8 +46,9 @@ class GatewayDispatchService(OpenClawDBService):
         agent_name: str,
         message: str,
         deliver: bool = False,
+        model: str | None = None,
     ) -> None:
-        await ensure_session(session_key, config=config, label=agent_name)
+        await ensure_session(session_key, config=config, label=agent_name, model=model)
         await send_message(message, session_key=session_key, config=config, deliver=deliver)
 
     async def try_send_agent_message(
@@ -58,6 +59,7 @@ class GatewayDispatchService(OpenClawDBService):
         agent_name: str,
         message: str,
         deliver: bool = False,
+        model: str | None = None,
     ) -> OpenClawGatewayError | None:
         try:
             await self.send_agent_message(
@@ -66,6 +68,7 @@ class GatewayDispatchService(OpenClawDBService):
                 agent_name=agent_name,
                 message=message,
                 deliver=deliver,
+                model=model,
             )
         except OpenClawGatewayError as exc:
             return exc

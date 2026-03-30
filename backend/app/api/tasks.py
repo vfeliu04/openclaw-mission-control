@@ -76,6 +76,9 @@ from app.services.task_dependencies import (
     replace_task_dependencies,
     validate_dependency_update,
 )
+from app.core.config import settings
+from app.services.difficulty_classifier import DifficultyClassifierService
+from app.services.model_routing import resolve_model_for_difficulty
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Sequence
@@ -583,6 +586,7 @@ async def _send_agent_task_message(
     config: GatewayClientConfig,
     agent_name: str,
     message: str,
+    model: str | None = None,
 ) -> OpenClawGatewayError | None:
     return await dispatch.try_send_agent_message(
         session_key=session_key,
@@ -590,6 +594,7 @@ async def _send_agent_task_message(
         agent_name=agent_name,
         message=message,
         deliver=False,
+        model=model,
     )
 
 
@@ -717,6 +722,12 @@ async def _notify_agent_on_task_assign(
     config = await dispatch.optional_gateway_config_for_board(board)
     if config is None:
         return
+    # Resolve which model to use based on task difficulty.
+    resolved_difficulty = task.difficulty
+    if resolved_difficulty == "auto":
+        classifier = DifficultyClassifierService(settings.anthropic_api_key)
+        resolved_difficulty = await classifier.classify(task.title, task.description)
+    routed_model = resolve_model_for_difficulty(resolved_difficulty)  # type: ignore[arg-type]
     message = _assignment_notification_message(board=board, task=task, agent=agent)
     error = await _send_agent_task_message(
         dispatch=dispatch,
@@ -724,6 +735,7 @@ async def _notify_agent_on_task_assign(
         config=config,
         agent_name=agent.name,
         message=message,
+        model=routed_model,
     )
     if error is None:
         record_activity(

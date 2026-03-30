@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -l \"ActivityFeed\\\\|activity\" \"/Users/vicentefeliu/Documents/Computer Science  Projects/Personal Projects/DiogoProject/openclaw-mission-control/frontend/src/components\"/*.tsx)",
+      "Bash(npx tsc:*)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(docker compose:*)",
+      "Bash(ls -d \"/Users/vicentefeliu/Documents/Computer Science  Projects/Personal Projects/DiogoProject/openclaw\"/*)",
+      "Bash(ls -d */)",
+      "Bash(find '/Users/vicentefeliu/Documents/Computer Science  Projects/Personal Projects/DiogoProject/openclaw/src/gateway/protocol' -type f -name *.ts)",
+      "Bash(find '/Users/vicentefeliu/Documents/Computer Science  Projects/Personal Projects/DiogoProject/openclaw' -name CLAUDE.md -o -name *mission* -o -name *bridge*)",
+      "Bash(find '/Users/vicentefeliu/Documents/Computer Science  Projects/Personal Projects/DiogoProject/openclaw/docs' -name *protocol* -o -name *bridge* -o -name *gateway*)",
+      "Bash(grep -E \"\\\\.ts$\")",
+      "Bash(wc:*)",
+      "Bash(python3 -m json.tool)",
+      "Bash(du -sh \"/Users/vicentefeliu/.claude/projects/-Users-vicentefeliu-Desktop-openclaw\"*)",
+      "Bash(du -sh \"/Users/vicentefeliu/.claude/projects/-Users-vicentefeliu-Documents-Computer-Science--Projects-Personal-Projects-DiogoProject-openclaw\"*)"
+    ]
+  }
+}

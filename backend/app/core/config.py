@@ -84,6 +84,9 @@ class Settings(BaseSettings):
     # OpenClaw gateway runtime compatibility
     gateway_min_version: str = "2026.02.9"
 
+    # Anthropic API key for internal classifier calls (difficulty routing)
+    anthropic_api_key: str = ""
+
     # Logging
     log_level: str = "INFO"
     log_format: str = "text"

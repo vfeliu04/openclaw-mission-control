@@ -25,6 +25,7 @@ class Task(TenantScoped, table=True):
     description: str | None = None
     status: str = Field(default="inbox", index=True)
     priority: str = Field(default="medium", index=True)
+    difficulty: str = Field(default="auto", index=True)
     due_at: datetime | None = None
     in_progress_at: datetime | None = None
     previous_in_progress_at: datetime | None = None

@@ -55,6 +55,7 @@ class BoardGroupTaskSummary(SQLModel):
     title: str
     status: str
     priority: str
+    difficulty: str = "auto"
     assigned_agent_id: UUID | None = None
     assignee: str | None = None
     due_at: datetime | None = None

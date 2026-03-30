@@ -1137,6 +1137,7 @@ export default function BoardDetailPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("medium");
+  const [difficulty, setDifficulty] = useState<"auto" | "easy" | "medium" | "hard">("auto");
   const [createDueDate, setCreateDueDate] = useState("");
   const [createTagIds, setCreateTagIds] = useState<string[]>([]);
   const [createCustomFieldValues, setCreateCustomFieldValues] =
@@ -1148,6 +1149,7 @@ export default function BoardDetailPage() {
   const [editDescription, setEditDescription] = useState("");
   const [editStatus, setEditStatus] = useState<TaskStatus>("inbox");
   const [editPriority, setEditPriority] = useState("medium");
+  const [editDifficulty, setEditDifficulty] = useState<"auto" | "easy" | "medium" | "hard">("auto");
   const [editDueDate, setEditDueDate] = useState("");
   const [editAssigneeId, setEditAssigneeId] = useState("");
   const [editTagIds, setEditTagIds] = useState<string[]>([]);
@@ -1652,6 +1654,7 @@ export default function BoardDetailPage() {
       setEditDescription("");
       setEditStatus("inbox");
       setEditPriority("medium");
+      setEditDifficulty("auto");
       setEditDueDate("");
       setEditAssigneeId("");
       setEditTagIds([]);
@@ -1666,6 +1669,7 @@ export default function BoardDetailPage() {
     setEditDescription(selectedTask.description ?? "");
     setEditStatus(selectedTask.status);
     setEditPriority(selectedTask.priority);
+    setEditDifficulty((selectedTask.difficulty as "auto" | "easy" | "medium" | "hard") ?? "auto");
     setEditDueDate(toLocalDateInput(selectedTask.due_at));
     setEditAssigneeId(selectedTask.assigned_agent_id ?? "");
     setEditTagIds(selectedTask.tag_ids ?? []);
@@ -1971,6 +1975,7 @@ export default function BoardDetailPage() {
     setTitle("");
     setDescription("");
     setPriority("medium");
+    setDifficulty("auto");
     setCreateDueDate("");
     setCreateTagIds([]);
     setCreateCustomFieldValues(defaultCreateCustomFieldValues);
@@ -2006,6 +2011,7 @@ export default function BoardDetailPage() {
         description: description.trim() || null,
         status: "inbox",
         priority,
+        difficulty,
         due_at: localDateInputToUtcIso(createDueDate),
         tag_ids: createTagIds,
         custom_field_values: createCustomFieldPayload,
@@ -2681,6 +2687,7 @@ export default function BoardDetailPage() {
         description: editDescription.trim() || null,
         status: editStatus,
         priority: editPriority,
+        difficulty: editDifficulty,
         assigned_agent_id: editAssigneeId || null,
       };
 
@@ -2759,6 +2766,7 @@ export default function BoardDetailPage() {
     setEditDescription(selectedTask.description ?? "");
     setEditStatus(selectedTask.status);
     setEditPriority(selectedTask.priority);
+    setEditDifficulty((selectedTask.difficulty as "auto" | "easy" | "medium" | "hard") ?? "auto");
     setEditDueDate(toLocalDateInput(selectedTask.due_at));
     setEditAssigneeId(selectedTask.assigned_agent_id ?? "");
     setEditTagIds(selectedTask.tag_ids ?? []);
@@ -3442,6 +3450,24 @@ export default function BoardDetailPage() {
                                                 >
                                                   {task.priority}
                                                 </span>
+                                                {task.difficulty && task.difficulty !== "auto" && (
+                                                  <span
+                                                    className={[
+                                                      "inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium",
+                                                      task.difficulty === "easy" ? "bg-green-100 text-green-700" : "",
+                                                      task.difficulty === "medium" ? "bg-blue-100 text-blue-700" : "",
+                                                      task.difficulty === "hard" ? "bg-purple-100 text-purple-700" : "",
+                                                    ]
+                                                      .filter(Boolean)
+                                                      .join(" ")}
+                                                  >
+                                                    {task.difficulty === "easy"
+                                                      ? "Haiku"
+                                                      : task.difficulty === "medium"
+                                                      ? "Sonnet"
+                                                      : "Opus"}
+                                                  </span>
+                                                )}
                                                 <p className="truncate text-sm font-medium text-slate-900">
                                                   {task.title}
                                                 </p>
@@ -3617,6 +3643,24 @@ export default function BoardDetailPage() {
                                   >
                                     {task.priority}
                                   </span>
+                                  {task.difficulty && task.difficulty !== "auto" && (
+                                    <span
+                                      className={[
+                                        "inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium",
+                                        task.difficulty === "easy" ? "bg-green-100 text-green-700" : "",
+                                        task.difficulty === "medium" ? "bg-blue-100 text-blue-700" : "",
+                                        task.difficulty === "hard" ? "bg-purple-100 text-purple-700" : "",
+                                      ]
+                                        .filter(Boolean)
+                                        .join(" ")}
+                                    >
+                                      {task.difficulty === "easy"
+                                        ? "Haiku"
+                                        : task.difficulty === "medium"
+                                        ? "Sonnet"
+                                        : "Opus"}
+                                    </span>
+                                  )}
                                   {task.tags?.length ? (
                                     <div className="flex flex-wrap items-center gap-1">
                                       {task.tags.slice(0, 2).map((tag) => (
@@ -4225,6 +4269,28 @@ export default function BoardDetailPage() {
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Difficulty
+                </label>
+                <Select
+                  value={editDifficulty}
+                  onValueChange={(e) =>
+                    setEditDifficulty(e as "auto" | "easy" | "medium" | "hard")
+                  }
+                  disabled={!selectedTask || isSavingTask || !canWrite}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select difficulty" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto</SelectItem>
+                    <SelectItem value="easy">Easy — Haiku</SelectItem>
+                    <SelectItem value="medium">Medium — Sonnet</SelectItem>
+                    <SelectItem value="hard">Hard — Opus</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                   Due date
                 </label>
                 <Input
@@ -4534,6 +4600,28 @@ export default function BoardDetailPage() {
                       {item.label}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-strong">
+                Difficulty
+              </label>
+              <Select
+                value={difficulty}
+                onValueChange={(e) =>
+                  setDifficulty(e as "auto" | "easy" | "medium" | "hard")
+                }
+                disabled={!canWrite || isCreating}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select difficulty" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Auto</SelectItem>
+                  <SelectItem value="easy">Easy — Haiku</SelectItem>
+                  <SelectItem value="medium">Medium — Sonnet</SelectItem>
+                  <SelectItem value="hard">Hard — Opus</SelectItem>
                 </SelectContent>
               </Select>
             </div>
