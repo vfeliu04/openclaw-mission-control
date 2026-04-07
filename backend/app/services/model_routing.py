@@ -9,9 +9,9 @@ DifficultyTier = Literal["easy", "medium", "hard"]
 # Openclaw model identifiers for each difficulty tier.
 # Update these strings if the gateway model IDs change.
 _DIFFICULTY_MODEL_MAP: dict[DifficultyTier, str] = {
-    "easy": "anthropic/claude-haiku-4-5",
-    "medium": "anthropic/claude-sonnet-4-6",
-    "hard": "anthropic/claude-opus-4-6",
+    "easy": "google/gemini-2.5-flash",
+    "medium": "google/gemini-2.5-flash",
+    "hard": "anthropic/claude-sonnet-4-6",
 }
 
 

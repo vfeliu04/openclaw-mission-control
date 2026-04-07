@@ -86,6 +86,10 @@ class Settings(BaseSettings):
 
     # Anthropic API key for internal classifier calls (difficulty routing)
     anthropic_api_key: str = ""
+    gemini_api_key: str = ""
+
+    # WhatsApp number for the main agent session (used to identify the session key)
+    main_whatsapp_number: str = ""
 
     # Logging
     log_level: str = "INFO"

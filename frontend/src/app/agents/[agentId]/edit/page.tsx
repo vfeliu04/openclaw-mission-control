@@ -97,6 +97,8 @@ export default function EditAgentPage() {
   const [identityProfile, setIdentityProfile] = useState<
     IdentityProfile | undefined
   >(undefined);
+  const [agentRole, setAgentRole] = useState<"specialist" | "manager" | undefined>(undefined);
+  const [skillTagsInput, setSkillTagsInput] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
 
   const boardsQuery = useListBoardsApiV1BoardsGet<
@@ -179,6 +181,10 @@ export default function EditAgentPage() {
     isGatewayMain ?? Boolean(loadedAgent?.is_gateway_main);
   const resolvedHeartbeatEvery = heartbeatEvery ?? loadedHeartbeat.every;
   const resolvedIdentityProfile = identityProfile ?? loadedIdentityProfile;
+  const resolvedAgentRole: "specialist" | "manager" =
+    agentRole ?? ((loadedAgent?.agent_role === "manager" ? "manager" : "specialist"));
+  const resolvedSkillTagsInput =
+    skillTagsInput ?? (loadedAgent?.skill_tags?.join(", ") ?? "");
 
   const resolvedBoardId = useMemo(() => {
     if (resolvedIsGatewayMain) return boardId ?? "";
@@ -216,6 +222,10 @@ export default function EditAgentPage() {
         ? (loadedAgent.heartbeat_config as Record<string, unknown>)
         : {};
 
+    const parsedSkillTags = resolvedSkillTagsInput
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
     const payload: AgentUpdate = {
       name: trimmed,
       heartbeat_config: {
@@ -231,6 +241,8 @@ export default function EditAgentPage() {
         loadedAgent.identity_profile,
         resolvedIdentityProfile,
       ) as unknown as Record<string, unknown> | null,
+      agent_role: resolvedAgentRole,
+      skill_tags: parsedSkillTags.length > 0 ? parsedSkillTags : [],
     };
     if (!resolvedIsGatewayMain) {
       payload.board_id = resolvedBoardId || null;
@@ -396,6 +408,50 @@ export default function EditAgentPage() {
                 </span>
               </span>
             </label>
+          </div>
+        </div>
+
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Role & skills
+          </p>
+          <div className="mt-4">
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-900">
+                  Agent role
+                </label>
+                <Select
+                  value={resolvedAgentRole}
+                  onValueChange={(value) =>
+                    setAgentRole(value as "specialist" | "manager")
+                  }
+                  disabled={isLoading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="specialist">Specialist</SelectItem>
+                    <SelectItem value="manager">Manager</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-900">
+                  Skill tags
+                </label>
+                <Input
+                  value={resolvedSkillTagsInput}
+                  onChange={(event) => setSkillTagsInput(event.target.value)}
+                  placeholder="e.g. frontend, data"
+                  disabled={isLoading}
+                />
+                <p className="text-xs text-slate-500">
+                  Comma-separated list of skill tags.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 

@@ -28,4 +28,8 @@ export interface AgentCreate {
   identity_template?: string | null;
   /** Template representing deeper agent instructions. */
   soul_template?: string | null;
+  /** Role in the hierarchy: 'manager' orchestrates, 'specialist' executes. */
+  agent_role?: string;
+  /** Skill tags for routing, e.g. ['frontend', 'cybersecurity', 'data']. */
+  skill_tags?: string[];
 }

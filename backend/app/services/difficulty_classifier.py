@@ -1,17 +1,17 @@
-"""LLM-based task difficulty classifier using Claude Haiku."""
+"""LLM-based task difficulty classifier using Gemini Flash."""
 
 from __future__ import annotations
 
 import logging
 from typing import Literal
 
-import anthropic
+import google.generativeai as genai
 
 logger = logging.getLogger(__name__)
 
 DifficultyTier = Literal["easy", "medium", "hard"]
 
-_CLASSIFIER_SYSTEM = (
+_CLASSIFIER_PROMPT = (
     "You are a task difficulty classifier. "
     "Given a task title and optional description, respond with exactly one word: "
     "easy, medium, or hard. "
@@ -19,14 +19,14 @@ _CLASSIFIER_SYSTEM = (
     "medium = multi-step tasks requiring moderate reasoning (e.g. implement a feature, debug an issue, write a report). "
     "hard = complex, open-ended, or architecturally significant tasks "
     "(e.g. design a system, refactor a module, security audit, research and synthesise). "
-    "Respond with only the single word. No punctuation, no explanation."
+    "Respond with only the single word. No punctuation, no explanation.\n\n"
 )
 
 
 class DifficultyClassifierService:
-    """Classify task difficulty using Claude Haiku."""
+    """Classify task difficulty using Gemini Flash."""
 
-    MODEL = "claude-haiku-4-5-20251001"
+    MODEL = "gemini-2.5-flash"
     FALLBACK: DifficultyTier = "medium"
 
     def __init__(self, api_key: str) -> None:
@@ -39,7 +39,7 @@ class DifficultyClassifierService:
     ) -> DifficultyTier:
         """Return 'easy', 'medium', or 'hard'. Falls back to 'medium' on any error."""
         if not self._api_key:
-            logger.debug("No ANTHROPIC_API_KEY configured; using fallback difficulty 'medium'.")
+            logger.debug("No GEMINI_API_KEY configured; using fallback difficulty 'medium'.")
             return self.FALLBACK
 
         content = f"Task: {title}"
@@ -47,14 +47,13 @@ class DifficultyClassifierService:
             content += f"\nDescription: {description.strip()[:500]}"
 
         try:
-            client = anthropic.AsyncAnthropic(api_key=self._api_key)
-            response = await client.messages.create(
-                model=self.MODEL,
-                max_tokens=5,
-                system=_CLASSIFIER_SYSTEM,
-                messages=[{"role": "user", "content": content}],
+            genai.configure(api_key=self._api_key)
+            model = genai.GenerativeModel(self.MODEL)
+            response = await model.generate_content_async(
+                _CLASSIFIER_PROMPT + content,
+                generation_config=genai.GenerationConfig(max_output_tokens=5),
             )
-            raw = response.content[0].text.strip().lower()
+            raw = response.text.strip().lower()
             if raw in ("easy", "medium", "hard"):
                 return raw  # type: ignore[return-value]
             logger.warning("Classifier returned unexpected value %r; using fallback.", raw)

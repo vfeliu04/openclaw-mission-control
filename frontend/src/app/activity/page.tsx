@@ -5,7 +5,23 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 import { SignedIn, SignedOut, useAuth } from "@/auth/clerk";
-import { Activity as ActivityIcon, Bot, MessageSquare, Radio } from "lucide-react";
+import {
+  Activity as ActivityIcon,
+  Bot,
+  CheckCircle2,
+  CircleDot,
+  type LucideIcon,
+  MessageSquare,
+  PencilLine,
+  Plus,
+  Radio,
+  ShieldAlert,
+  ShieldCheck,
+  ShieldX,
+  Terminal,
+  Wifi,
+  WifiOff,
+} from "lucide-react";
 
 import { ApiError } from "@/api/mutator";
 import { streamAgentsApiV1AgentsStreamGet } from "@/api/generated/agents/agents";
@@ -31,7 +47,6 @@ import type {
   TaskRead,
 } from "@/api/generated/model";
 import { Markdown } from "@/components/atoms/Markdown";
-import { ActivityFeed } from "@/components/activity/ActivityFeed";
 import { SignedOutPanel } from "@/components/auth/SignedOutPanel";
 import { DashboardSidebar } from "@/components/organisms/DashboardSidebar";
 import { DashboardShell } from "@/components/templates/DashboardShell";
@@ -148,10 +163,71 @@ const formatRelativeTime = (value: string): string => {
   const diffSecs = Math.floor(diffMs / 1000);
   if (diffSecs < 60) return "just now";
   const diffMins = Math.floor(diffSecs / 60);
-  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffMins < 60) return `${diffMins} minute${diffMins === 1 ? "" : "s"} ago`;
   const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return "yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
   return formatShortTimestamp(value);
+};
+
+// ─── Time-grouping helpers ────────────────────────────────────────────────────
+
+type TimeGroup = "morning" | "afternoon" | "yesterday" | "older";
+
+const getTimeGroup = (value: string): TimeGroup => {
+  const date = parseApiDatetime(value);
+  if (!date) return "older";
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterdayStart = new Date(todayStart.getTime() - 86_400_000);
+  const noonToday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    12,
+    0,
+    0,
+  );
+  if (date >= noonToday) return "afternoon";
+  if (date >= todayStart) return "morning";
+  if (date >= yesterdayStart) return "yesterday";
+  return "older";
+};
+
+const TIME_GROUP_LABELS: Record<TimeGroup, string> = {
+  morning: "This morning",
+  afternoon: "This afternoon",
+  yesterday: "Yesterday",
+  older: "Earlier",
+};
+
+const TIME_GROUP_ORDER: TimeGroup[] = [
+  "afternoon",
+  "morning",
+  "yesterday",
+  "older",
+];
+
+const groupFeedItems = (
+  items: FeedItem[],
+): { group: TimeGroup; label: string; items: FeedItem[] }[] => {
+  const map = new Map<TimeGroup, FeedItem[]>();
+  for (const item of items) {
+    const group = getTimeGroup(item.created_at);
+    const existing = map.get(group);
+    if (existing) {
+      existing.push(item);
+    } else {
+      map.set(group, [item]);
+    }
+  }
+  return TIME_GROUP_ORDER.filter((g) => map.has(g)).map((g) => ({
+    group: g,
+    label: TIME_GROUP_LABELS[g],
+    items: map.get(g)!,
+  }));
 };
 
 const normalizeRouteParams = (
@@ -283,6 +359,82 @@ const eventPillClass = (eventType: FeedEventType): string => {
   if (eventType === "approval.approved") return "border-emerald-200 bg-emerald-50 text-emerald-700";
   if (eventType === "approval.rejected") return "border-rose-200 bg-rose-50 text-rose-700";
   return "border-slate-200 bg-slate-100 text-slate-700";
+};
+
+const eventIcon = (eventType: FeedEventType): LucideIcon => {
+  if (eventType === "task.comment") return MessageSquare;
+  if (eventType === "task.created") return Plus;
+  if (eventType === "task.status_changed") return CircleDot;
+  if (eventType === "task.updated") return PencilLine;
+  if (eventType === "board.chat") return MessageSquare;
+  if (eventType === "board.command") return Terminal;
+  if (eventType === "agent.created") return Bot;
+  if (eventType === "agent.online") return Wifi;
+  if (eventType === "agent.offline") return WifiOff;
+  if (eventType === "agent.updated") return Bot;
+  if (eventType === "approval.created") return ShieldAlert;
+  if (eventType === "approval.updated") return ShieldAlert;
+  if (eventType === "approval.approved") return ShieldCheck;
+  if (eventType === "approval.rejected") return ShieldX;
+  return CheckCircle2;
+};
+
+const eventIconBg = (eventType: FeedEventType): string => {
+  if (eventType === "task.comment") return "bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400";
+  if (eventType === "task.created") return "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400";
+  if (eventType === "task.status_changed") return "bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400";
+  if (eventType === "task.updated") return "bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-400";
+  if (eventType === "board.chat") return "bg-teal-100 text-teal-600 dark:bg-teal-900/40 dark:text-teal-400";
+  if (eventType === "board.command") return "bg-fuchsia-100 text-fuchsia-600 dark:bg-fuchsia-900/40 dark:text-fuchsia-400";
+  if (eventType === "agent.created") return "bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-400";
+  if (eventType === "agent.online") return "bg-lime-100 text-lime-600 dark:bg-lime-900/40 dark:text-lime-400";
+  if (eventType === "agent.offline") return "bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-500";
+  if (eventType === "agent.updated") return "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400";
+  if (eventType === "approval.created") return "bg-cyan-100 text-cyan-600 dark:bg-cyan-900/40 dark:text-cyan-400";
+  if (eventType === "approval.updated") return "bg-sky-100 text-sky-600 dark:bg-sky-900/40 dark:text-sky-400";
+  if (eventType === "approval.approved") return "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400";
+  if (eventType === "approval.rejected") return "bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400";
+  return "bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-400";
+};
+
+const buildPlainEnglish = (item: FeedItem): string => {
+  const actor = item.actor_name;
+  const taskTitle = item.task_title ?? item.title;
+  const boardName = item.board_name;
+  const boardSuffix = boardName ? ` on ${boardName}` : "";
+
+  switch (item.event_type) {
+    case "task.comment":
+      return `${actor} commented on "${taskTitle}"${boardSuffix}`;
+    case "task.created":
+      return `${actor} created task "${taskTitle}"${boardSuffix}`;
+    case "task.updated":
+      return `${actor} updated task "${taskTitle}"${boardSuffix}`;
+    case "task.status_changed":
+      return `${actor} changed status of "${taskTitle}"${boardSuffix}`;
+    case "board.chat":
+      return `${actor} sent a message${boardSuffix}`;
+    case "board.command":
+      return `${actor} ran a command${boardSuffix}`;
+    case "agent.created":
+      return `Agent ${actor} was registered${boardName ? ` on ${boardName}` : ""}`;
+    case "agent.online":
+      return `Agent ${actor} came online${boardName ? ` on ${boardName}` : ""}`;
+    case "agent.offline":
+      return `Agent ${actor} went offline${boardName ? ` on ${boardName}` : ""}`;
+    case "agent.updated":
+      return `Agent ${actor} was updated${boardName ? ` on ${boardName}` : ""}`;
+    case "approval.created":
+      return `${actor} requested an approval${boardSuffix}`;
+    case "approval.updated":
+      return `Approval updated by ${actor}${boardSuffix}`;
+    case "approval.approved":
+      return `${actor} approved a request${boardSuffix}`;
+    case "approval.rejected":
+      return `${actor} rejected a request${boardSuffix}`;
+    default:
+      return item.title;
+  }
 };
 
 // ─── Agent Card ───────────────────────────────────────────────────────────────
@@ -545,136 +697,132 @@ const FeedCard = memo(function FeedCard({
   isHighlighted?: boolean;
 }) {
   const message = (item.message ?? "").trim();
-  const authorAvatar = (item.actor_name[0] ?? "A").toUpperCase();
-  const isChat =
-    item.event_type === "board.chat" || item.event_type === "board.command";
-  const isAgentStatus =
-    item.event_type === "agent.online" || item.event_type === "agent.offline";
-  const isOnlineEvent = item.event_type === "agent.online";
+  const Icon = eventIcon(item.event_type);
+  const iconBg = eventIconBg(item.event_type);
+  const description = buildPlainEnglish(item);
+  const relativeTime = formatRelativeTime(item.created_at);
 
   return (
     <div
       id={feedItemElementId(item.id)}
       className={cn(
-        "scroll-mt-28 rounded-xl border bg-white p-4 transition duration-200",
+        "scroll-mt-28 flex items-start gap-3 rounded-xl border bg-white px-4 py-3 transition duration-200 dark:bg-zinc-900",
         isHighlighted
-          ? "border-blue-300 ring-2 ring-blue-200"
-          : isChat
-            ? "border-teal-100 hover:border-teal-200"
-            : "border-slate-200 hover:border-slate-300",
+          ? "border-blue-300 ring-2 ring-blue-200 dark:border-blue-700 dark:ring-blue-900"
+          : "border-slate-200 hover:border-slate-300 dark:border-zinc-800 dark:hover:border-zinc-700",
       )}
     >
-      <div className="flex items-start gap-3">
-        {/* Avatar */}
-        <div
-          className={cn(
-            "relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold",
-            isChat
-              ? "bg-teal-100 text-teal-700"
-              : isAgentStatus
-                ? isOnlineEvent
-                  ? "bg-lime-100 text-lime-700"
-                  : "bg-slate-100 text-slate-500"
-                : "bg-slate-100 text-slate-700",
-          )}
-        >
-          {isChat ? (
-            <MessageSquare className="h-4 w-4" />
-          ) : (
-            authorAvatar
-          )}
-          {/* Online pulse dot on avatar for agent.online */}
-          {isOnlineEvent && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-2.5 w-2.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
-            </span>
-          )}
-        </div>
+      {/* Icon */}
+      <div
+        className={cn(
+          "mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg",
+          iconBg,
+        )}
+      >
+        <Icon className="h-4 w-4" />
+      </div>
 
-        {/* Content */}
-        <div className="min-w-0 flex-1">
-          <div className="min-w-0">
+      {/* Body */}
+      <div className="min-w-0 flex-1">
+        {/* Description line */}
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-sm text-slate-700 dark:text-zinc-300 leading-snug">
             {item.context_href ? (
               <Link
                 href={item.context_href}
-                className="block text-sm font-semibold leading-snug text-slate-900 transition hover:text-slate-950 hover:underline"
-                title={item.title}
-                style={{
-                  display: "-webkit-box",
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: "vertical",
-                  overflow: "hidden",
-                }}
+                className="hover:underline hover:text-slate-900 dark:hover:text-zinc-100"
               >
-                {item.title}
+                {description}
               </Link>
             ) : (
-              <p className="text-sm font-semibold leading-snug text-slate-900">
-                {item.title}
-              </p>
+              description
             )}
+          </p>
+          <span className="shrink-0 text-xs text-slate-400 dark:text-zinc-600 whitespace-nowrap">
+            {relativeTime}
+          </span>
+        </div>
 
-            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-500">
-              <span
-                className={cn(
-                  "rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                  eventPillClass(item.event_type),
-                )}
-              >
-                {eventLabel(item.event_type)}
-              </span>
-              {item.board_href && item.board_name ? (
-                <Link
-                  href={item.board_href}
-                  className="font-semibold text-slate-700 hover:text-slate-900 hover:underline"
-                >
-                  {item.board_name}
-                </Link>
-              ) : item.board_name ? (
-                <span className="font-semibold text-slate-700">
-                  {item.board_name}
-                </span>
-              ) : null}
-              {item.board_name ? (
-                <span className="text-slate-300">·</span>
-              ) : null}
-              <span className="font-medium text-slate-700">
-                {item.actor_name}
-              </span>
-              {item.actor_role ? (
-                <>
-                  <span className="text-slate-300">·</span>
-                  <span className="text-slate-500">{item.actor_role}</span>
-                </>
-              ) : null}
-              <span className="text-slate-300">·</span>
-              <span className="text-slate-400">
-                {formatShortTimestamp(item.created_at)}
-              </span>
-            </div>
+        {/* Message body (chat / command / comment content) */}
+        {message ? (
+          <div className="mt-2 rounded-md bg-slate-50 dark:bg-zinc-800 px-3 py-2 text-sm text-slate-600 dark:text-zinc-400 leading-relaxed select-text cursor-text break-words">
+            <Markdown content={message} variant="basic" />
           </div>
-        </div>
+        ) : null}
       </div>
-
-      {/* Message body */}
-      {message ? (
-        <div
-          className={cn(
-            "mt-3 select-text cursor-text text-sm leading-relaxed break-words",
-            isChat ? "text-slate-700" : "text-slate-900",
-          )}
-        >
-          <Markdown content={message} variant="basic" />
-        </div>
-      ) : (
-        <p className="mt-3 text-sm text-slate-500">—</p>
-      )}
     </div>
   );
 });
 
 FeedCard.displayName = "FeedCard";
+
+// ─── Time-grouped feed ────────────────────────────────────────────────────────
+
+const TimeGroupedFeed = memo(function TimeGroupedFeed({
+  isLoading,
+  errorMessage,
+  items,
+  highlightedId,
+}: {
+  isLoading: boolean;
+  errorMessage: string | null;
+  items: FeedItem[];
+  highlightedId: string | null;
+}) {
+  if (isLoading && items.length === 0) {
+    return (
+      <p className="text-sm text-slate-500 dark:text-zinc-500">
+        Loading feed…
+      </p>
+    );
+  }
+
+  if (errorMessage) {
+    return (
+      <div className="rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 text-sm text-slate-700 dark:text-zinc-300 shadow-sm">
+        {errorMessage}
+      </div>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-10 text-center shadow-sm">
+        <p className="text-sm font-medium text-slate-900 dark:text-zinc-100">
+          No activity yet — agents are idle
+        </p>
+        <p className="mt-1 text-sm text-slate-500 dark:text-zinc-500">
+          When updates happen, they will show up here.
+        </p>
+      </div>
+    );
+  }
+
+  const groups = groupFeedItems(items);
+
+  return (
+    <div className="space-y-6">
+      {groups.map(({ group, label, items: groupItems }) => (
+        <section key={group}>
+          <h3 className="sticky top-0 py-2 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-zinc-600 bg-[var(--bg)]">
+            {label}
+          </h3>
+          <div className="mt-1 space-y-2">
+            {groupItems.map((item) => (
+              <FeedCard
+                key={item.id}
+                item={item}
+                isHighlighted={highlightedId === item.id}
+              />
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+});
+
+TimeGroupedFeed.displayName = "TimeGroupedFeed";
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -1831,6 +1979,17 @@ export default function ActivityPage() {
     [agentsState],
   );
 
+  // ── Effect: 15s relative-timestamp refresh ──────────────────────────────────
+  // Forces re-render so relative times ("2 minutes ago") stay accurate.
+  const [, setTickCount] = useState(0);
+  useEffect(() => {
+    if (!isSignedIn) return;
+    const interval = window.setInterval(() => {
+      setTickCount((n) => n + 1);
+    }, 15_000);
+    return () => window.clearInterval(interval);
+  }, [isSignedIn]);
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
@@ -1848,33 +2007,33 @@ export default function ActivityPage() {
           </SignedOut>
           <SignedIn>
             <DashboardSidebar />
-            <main className="flex-1 overflow-y-auto bg-slate-50">
+            <main className="flex-1 overflow-y-auto bg-slate-50 dark:bg-zinc-950">
               {/* Page header */}
-              <div className="sticky top-0 z-30 border-b border-slate-200 bg-white">
+              <div className="sticky top-0 z-30 border-b border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
                 <div className="px-4 py-4 md:px-8 md:py-6">
                   <div className="flex flex-wrap items-center justify-between gap-4">
                     <div>
                       <div className="flex items-center gap-2">
-                        <ActivityIcon className="h-5 w-5 text-slate-600" />
-                        <h1 className="font-heading text-2xl font-semibold tracking-tight text-slate-900">
-                          Live feed
+                        <ActivityIcon className="h-5 w-5 text-slate-600 dark:text-zinc-400" />
+                        <h1 className="font-heading text-2xl font-semibold tracking-tight text-slate-900 dark:text-zinc-100">
+                          Activity
                         </h1>
                         {/* Live pulse indicator */}
-                        <span className="flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5">
+                        <span className="flex items-center gap-1 rounded-full border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5">
                           <span className="relative flex h-1.5 w-1.5">
                             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                             <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
                           </span>
-                          <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
                             Live
                           </span>
                         </span>
                       </div>
-                      <p className="mt-1 text-sm text-slate-500">
+                      <p className="mt-1 text-sm text-slate-500 dark:text-zinc-400">
                         Realtime task, approval, agent, and board-chat activity
                         across all boards.
                         {onlineAgentCount > 0 ? (
-                          <span className="ml-2 font-medium text-emerald-600">
+                          <span className="ml-2 font-medium text-emerald-600 dark:text-emerald-400">
                             {onlineAgentCount} agent
                             {onlineAgentCount !== 1 ? "s" : ""} online.
                           </span>
@@ -1882,7 +2041,7 @@ export default function ActivityPage() {
                       </p>
                     </div>
                     {/* Live stream indicator */}
-                    <div className="flex items-center gap-1.5 text-slate-400">
+                    <div className="flex items-center gap-1.5 text-slate-400 dark:text-zinc-600">
                       <Radio className="h-3.5 w-3.5" />
                       <span className="text-xs">Streaming</span>
                     </div>
@@ -1901,31 +2060,17 @@ export default function ActivityPage() {
 
                 {/* Deep-link notice */}
                 {hasUnresolvedDeepLink ? (
-                  <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+                  <div className="mb-4 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-800 dark:text-amber-300">
                     Requested activity item is not in the current feed window
                     yet.
                   </div>
                 ) : null}
 
-                {/* Feed section header */}
-                <div className="mb-3 flex items-center gap-2">
-                  <ActivityIcon className="h-3.5 w-3.5 text-slate-400" />
-                  <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-                    Event stream
-                  </span>
-                </div>
-
-                <ActivityFeed
+                <TimeGroupedFeed
                   isLoading={isFeedLoading}
                   errorMessage={feedError}
                   items={orderedFeed}
-                  renderItem={(item) => (
-                    <FeedCard
-                      key={item.id}
-                      item={item}
-                      isHighlighted={highlightedFeedItemId === item.id}
-                    />
-                  )}
+                  highlightedId={highlightedFeedItemId}
                 />
               </div>
             </main>

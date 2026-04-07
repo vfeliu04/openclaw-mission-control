@@ -27,4 +27,8 @@ export interface AgentUpdate {
   identity_template?: string | null;
   /** Optional replacement soul template. */
   soul_template?: string | null;
+  /** Optional role update: 'manager' or 'specialist'. */
+  agent_role?: string | null;
+  /** Optional skill tags update. */
+  skill_tags?: string[] | null;
 }

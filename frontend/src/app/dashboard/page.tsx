@@ -379,16 +379,16 @@ function TopMetricCard({
           : "bg-green-50 text-green-600";
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-4 md:p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+    <section className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 md:p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-1.5">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-zinc-500">
               {title}
             </p>
             {infoText ? (
               <span
-                className="inline-flex text-slate-400"
+                className="inline-flex text-slate-400 dark:text-zinc-500"
                 title={infoText}
                 aria-label={infoText}
               >
@@ -397,9 +397,9 @@ function TopMetricCard({
             ) : null}
           </div>
           <div className="mt-2 flex items-end gap-2">
-            <p className="font-heading text-4xl font-bold text-slate-900">{value}</p>
+            <p className="font-heading text-4xl font-bold text-slate-900 dark:text-zinc-100">{value}</p>
             {secondary ? (
-              <p className="pb-1 text-xs text-slate-500">{secondary}</p>
+              <p className="pb-1 text-xs text-slate-500 dark:text-zinc-500">{secondary}</p>
             ) : null}
           </div>
         </div>
@@ -423,13 +423,13 @@ function InfoBlock({
   rows: SummaryRow[];
 }) {
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-4 md:p-6 shadow-sm">
+    <section className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 md:p-6 shadow-sm">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-1.5">
-          <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-zinc-100">{title}</h3>
           {infoText ? (
             <span
-              className="inline-flex text-slate-400"
+              className="inline-flex text-slate-400 dark:text-zinc-500"
               title={infoText}
               aria-label={infoText}
             >
@@ -451,10 +451,10 @@ function InfoBlock({
           </span>
         ) : null}
       </div>
-      <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+      <div className="divide-y divide-slate-100 dark:divide-zinc-800 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
         {rows.map((row) => (
           <div key={`${row.label}-${row.value}`} className="flex items-start justify-between gap-3 px-3 py-2">
-            <span className="min-w-0 text-sm text-slate-500">{row.label}</span>
+            <span className="min-w-0 text-sm text-slate-500 dark:text-zinc-500">{row.label}</span>
             <span
               className={`max-w-[65%] break-words text-right text-sm font-medium leading-5 ${
                 row.tone === "success"
@@ -463,7 +463,7 @@ function InfoBlock({
                     ? "text-amber-700"
                     : row.tone === "danger"
                       ? "text-rose-700"
-                      : "text-slate-800"
+                      : "text-slate-800 dark:text-zinc-100"
               }`}
             >
               {row.value}
@@ -900,7 +900,7 @@ export default function DashboardPage() {
       </SignedOut>
       <SignedIn>
         <DashboardSidebar />
-        <main className="flex-1 overflow-y-auto bg-slate-50">
+        <main className="flex-1 overflow-y-auto bg-slate-50 dark:bg-zinc-900/50">
           <div className="p-4 md:p-8">
             {metricsQuery.error ? (
               <div className="mb-4 rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-700">
@@ -960,12 +960,12 @@ export default function DashboardPage() {
               />
             </div>
 
-            <section className="mt-4 rounded-xl border border-slate-200 bg-white p-4 md:p-6 shadow-sm">
+            <section className="mt-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 md:p-6 shadow-sm">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <h3 className="text-lg font-semibold text-slate-900">Pending Approvals</h3>
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-zinc-100">Pending Approvals</h3>
                 <Link
                   href="/approvals"
-                  className="inline-flex items-center gap-1 text-xs text-slate-500 transition hover:text-slate-700"
+                  className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-zinc-500 transition hover:text-slate-700 dark:hover:text-zinc-300"
                 >
                   Open global approvals
                   <ArrowUpRight className="h-3.5 w-3.5" />
@@ -973,7 +973,7 @@ export default function DashboardPage() {
               </div>
 
               {!metrics && metricsQuery.isLoading ? (
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+                <div className="rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 p-3 text-sm text-slate-500 dark:text-zinc-500">
                   Loading pending approvals...
                 </div>
               ) : !metrics && metricsQuery.error ? (
@@ -982,29 +982,29 @@ export default function DashboardPage() {
                 </div>
               ) : hasPendingApprovals ? (
                 <div className="space-y-2">
-                  <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
+                  <div className="divide-y divide-slate-100 dark:divide-zinc-800 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
                     {pendingApprovalItems.map((item) => (
                       <Link
                         key={item.approval_id}
                         href={`/boards/${item.board_id}/approvals`}
-                        className="flex items-center justify-between gap-3 px-3 py-2 transition hover:bg-slate-50"
+                        className="flex items-center justify-between gap-3 px-3 py-2 transition hover:bg-slate-50 dark:hover:bg-zinc-800/50"
                       >
-                        <span className="min-w-0 text-sm text-slate-700">
-                          <span className="block truncate font-medium text-slate-800">
+                        <span className="min-w-0 text-sm text-slate-700 dark:text-zinc-300">
+                          <span className="block truncate font-medium text-slate-800 dark:text-zinc-100">
                             {item.task_title || "Pending approval"}
                           </span>
-                          <span className="block truncate text-xs text-slate-500">
+                          <span className="block truncate text-xs text-slate-500 dark:text-zinc-500">
                             {item.board_name} · {item.confidence}% score
                           </span>
                         </span>
-                        <span className="shrink-0 text-xs text-slate-500">
+                        <span className="shrink-0 text-xs text-slate-500 dark:text-zinc-500">
                           {formatRelativeTimestamp(item.created_at)}
                         </span>
                       </Link>
                     ))}
                   </div>
                   {pendingApprovalsTotal > pendingApprovalItems.length ? (
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-500 dark:text-zinc-500">
                       Showing latest {formatCount(pendingApprovalItems.length)} of{" "}
                       {formatCount(pendingApprovalsTotal)} pending approvals.
                     </p>
@@ -1018,18 +1018,18 @@ export default function DashboardPage() {
             </section>
 
             <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-              <section className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-4 md:p-6 shadow-sm">
+              <section className="min-w-0 overflow-hidden rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 md:p-6 shadow-sm">
                 <div className="mb-3 flex items-center justify-between gap-3">
-                  <h3 className="text-lg font-semibold text-slate-900">Sessions</h3>
-                  <span className="text-xs text-slate-500">{formatCount(activeSessions)}</span>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-zinc-100">Sessions</h3>
+                  <span className="text-xs text-slate-500 dark:text-zinc-500">{formatCount(activeSessions)}</span>
                 </div>
                 <div className="max-h-[310px] space-y-2 overflow-x-hidden overflow-y-auto pr-1">
                   {!hasConfiguredGateways ? (
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+                    <div className="rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 p-3 text-sm text-slate-500 dark:text-zinc-500">
                       No gateways are configured for any board yet.
                     </div>
                   ) : gatewayStatusesQuery.isLoading ? (
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+                    <div className="rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 p-3 text-sm text-slate-500 dark:text-zinc-500">
                       Loading sessions...
                     </div>
                   ) : sessionSummaries.length > 0 ? (
@@ -1044,11 +1044,11 @@ export default function DashboardPage() {
                       {sessionSummaries.map((session) => (
                         <div
                           key={session.key}
-                          className="overflow-hidden rounded-lg border border-slate-200 bg-white px-3 py-2"
+                          className="overflow-hidden rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2"
                         >
                           <div className="flex items-center justify-between gap-3">
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-medium text-slate-900">
+                              <p className="truncate text-sm font-medium text-slate-900 dark:text-zinc-100">
                                 <span
                                   className={`mr-2 inline-block h-2 w-2 rounded-full ${
                                     session.isMain ? "bg-emerald-500" : "bg-slate-400"
@@ -1056,13 +1056,13 @@ export default function DashboardPage() {
                                 />
                                 {session.title}
                               </p>
-                              <p className="mt-0.5 truncate text-xs text-slate-500">{session.subtitle}</p>
+                              <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-zinc-500">{session.subtitle}</p>
                             </div>
                             <div className="min-w-0 max-w-[45%] text-right">
-                              <p className="truncate text-xs font-medium text-slate-700">
+                              <p className="truncate text-xs font-medium text-slate-700 dark:text-zinc-300">
                                 {session.usage === DASH ? "Usage unavailable" : session.usage}
                               </p>
-                              <p className="text-[11px] text-slate-500">
+                              <p className="text-[11px] text-slate-500 dark:text-zinc-500">
                                 {session.lastSeenAt
                                   ? formatRelativeTimestamp(session.lastSeenAt)
                                   : "Activity unavailable"}
@@ -1077,19 +1077,19 @@ export default function DashboardPage() {
                       Session data is unavailable for all configured gateways.
                     </div>
                   ) : (
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+                    <div className="rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/50 p-3 text-sm text-slate-500 dark:text-zinc-500">
                       No active sessions detected.
                     </div>
                   )}
                 </div>
               </section>
 
-              <section className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-4 md:p-6 shadow-sm">
+              <section className="min-w-0 overflow-hidden rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 md:p-6 shadow-sm">
                 <div className="mb-3 flex items-center justify-between gap-3">
-                  <h3 className="text-lg font-semibold text-slate-900">Recent Activity</h3>
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-zinc-100">Recent Activity</h3>
                   <Link
                     href={activityFeedHref}
-                    className="inline-flex items-center gap-1 text-xs text-slate-500 transition hover:text-slate-700"
+                    className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-zinc-500 transition hover:text-slate-700 dark:hover:text-zinc-300"
                   >
                     Open feed
                     <ArrowUpRight className="h-3.5 w-3.5" />
@@ -1111,21 +1111,21 @@ export default function DashboardPage() {
                           onKeyDown={(interactionEvent) =>
                             handleLogRowKeyDown(interactionEvent, eventHref)
                           }
-                          className="cursor-pointer overflow-hidden rounded-lg border border-slate-200 bg-white px-3 py-2 transition hover:border-slate-300 focus-visible:border-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                          className="cursor-pointer overflow-hidden rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-2 transition hover:border-slate-300 dark:hover:border-zinc-700 focus-visible:border-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 dark:focus-visible:ring-zinc-700"
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 flex-1 overflow-hidden">
-                              <div className="break-words text-sm font-medium text-slate-900 [&_ol]:mb-0 [&_p]:mb-0 [&_pre]:my-1 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_ul]:mb-0">
+                              <div className="break-words text-sm font-medium text-slate-900 dark:text-zinc-100 [&_ol]:mb-0 [&_p]:mb-0 [&_pre]:my-1 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_ul]:mb-0">
                                 <Markdown
                                   content={event.message?.trim() || event.event_type}
                                   variant="comment"
                                 />
                               </div>
-                              <p className="mt-0.5 text-xs uppercase tracking-wider text-slate-500">
+                              <p className="mt-0.5 text-xs uppercase tracking-wider text-slate-500 dark:text-zinc-500">
                                 {event.event_type}
                               </p>
                             </div>
-                            <div className="shrink-0 text-right text-[11px] text-slate-500">
+                            <div className="shrink-0 text-right text-[11px] text-slate-500 dark:text-zinc-500">
                               <p>{formatRelativeTimestamp(event.created_at)}</p>
                               <p>{formatTimestamp(event.created_at)}</p>
                             </div>
@@ -1134,10 +1134,10 @@ export default function DashboardPage() {
                       );
                     })
                   ) : (
-                    <div className="flex h-[240px] flex-col items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-500">
-                      <Shield className="mb-2 h-5 w-5 text-slate-400" />
+                    <div className="flex h-[240px] flex-col items-center justify-center rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-sm text-slate-500 dark:text-zinc-500">
+                      <Shield className="mb-2 h-5 w-5 text-slate-400 dark:text-zinc-500" />
                       No activity yet
-                      <p className="mt-1 text-xs text-slate-500">Activity appears here when events are emitted.</p>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-zinc-500">Activity appears here when events are emitted.</p>
                     </div>
                   )}
                 </div>

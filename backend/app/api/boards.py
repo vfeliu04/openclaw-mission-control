@@ -36,6 +36,7 @@ from app.services.activity_log import record_activity
 from app.services.board_group_snapshot import build_board_group_snapshot
 from app.services.board_lifecycle import delete_board as delete_board_service
 from app.services.board_snapshot import build_board_snapshot
+from app.services.openclaw.assistant_prompt import regenerate_boot_md
 from app.services.openclaw.gateway_dispatch import GatewayDispatchService
 from app.services.openclaw.gateway_rpc import GatewayConfig as GatewayClientConfig
 from app.services.openclaw.gateway_rpc import OpenClawGatewayError
@@ -485,9 +486,45 @@ async def create_board(
     ctx: OrganizationContext = ORG_ADMIN_DEP,
 ) -> Board:
     """Create a board in the active organization."""
+    from uuid import uuid4 as _uuid4
     data = payload.model_dump()
     data["organization_id"] = ctx.organization.id
-    return await crud.create(session, Board, **data)
+    board = await crud.create(session, Board, **data)
+    # Auto-provision a manager agent for this board.
+    if board.gateway_id:
+        manager_id = _uuid4()
+        await crud.create(
+            session,
+            Agent,
+            id=manager_id,
+            board_id=board.id,
+            gateway_id=board.gateway_id,
+            name=f"{board.name} Manager",
+            agent_role="manager",
+            skill_tags=[],
+            is_board_lead=True,
+            openclaw_session_id=f"agent:mc-{manager_id}:main",
+            status="provisioning",
+        )
+        # Regenerate main agent BOOT.md so the assistant knows about this board.
+        try:
+            gateway_obj = await crud.get(session, Gateway, id=board.gateway_id)
+            if gateway_obj:
+                await regenerate_boot_md(gateway_obj, session)
+        except Exception:
+            logger.warning("BOOT.md regeneration failed after board creation", exc_info=True)
+        # Pre-populate lead soul_template in DB so provisioning picks it up automatically.
+        try:
+            from app.services.openclaw.lead_prompt import generate_lead_soul_md
+            fresh_lead = await crud.get(session, Agent, id=manager_id)
+            if fresh_lead and gateway_obj:
+                soul_content = await generate_lead_soul_md(board, gateway_obj)
+                fresh_lead.soul_template = soul_content  # type: ignore[assignment]
+                session.add(fresh_lead)
+                await session.commit()
+        except Exception:
+            logger.warning("Lead soul_template generation failed after board creation", exc_info=True)
+    return board
 
 
 @router.get("/{board_id}", response_model=BoardRead)
@@ -606,4 +643,14 @@ async def delete_board(
     board: Board = BOARD_USER_WRITE_DEP,
 ) -> OkResponse:
     """Delete a board and all dependent records."""
-    return await delete_board_service(session, board=board)
+    gateway_id = board.gateway_id
+    result = await delete_board_service(session, board=board)
+    # Regenerate BOOT.md so the deleted board is removed from the assistant's context.
+    if gateway_id:
+        try:
+            gateway_obj = await crud.get(session, Gateway, id=gateway_id)
+            if gateway_obj:
+                await regenerate_boot_md(gateway_obj, session)
+        except Exception:
+            logger.warning("BOOT.md regeneration failed after board deletion", exc_info=True)
+    return result

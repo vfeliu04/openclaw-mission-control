@@ -67,6 +67,8 @@ export default function NewAgentPage() {
   const [identityProfile, setIdentityProfile] = useState<IdentityProfile>({
     ...DEFAULT_IDENTITY_PROFILE,
   });
+  const [agentRole, setAgentRole] = useState<"specialist" | "manager">("specialist");
+  const [skillTagsInput, setSkillTagsInput] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const boardsQuery = useListBoardsApiV1BoardsGet<
@@ -112,6 +114,10 @@ export default function NewAgentPage() {
       return;
     }
     setError(null);
+    const parsedSkillTags = skillTagsInput
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
     createAgentMutation.mutate({
       data: {
         name: trimmed,
@@ -124,6 +130,8 @@ export default function NewAgentPage() {
         identity_profile: normalizeIdentityProfile(
           identityProfile,
         ) as unknown as Record<string, unknown> | null,
+        agent_role: agentRole,
+        skill_tags: parsedSkillTags.length > 0 ? parsedSkillTags : undefined,
       },
     });
   };
@@ -227,6 +235,50 @@ export default function NewAgentPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Role & skills
+          </p>
+          <div className="mt-4">
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-900">
+                  Agent role
+                </label>
+                <Select
+                  value={agentRole}
+                  onValueChange={(value) =>
+                    setAgentRole(value as "specialist" | "manager")
+                  }
+                  disabled={isLoading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="specialist">Specialist</SelectItem>
+                    <SelectItem value="manager">Manager</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-900">
+                  Skill tags
+                </label>
+                <Input
+                  value={skillTagsInput}
+                  onChange={(event) => setSkillTagsInput(event.target.value)}
+                  placeholder="e.g. frontend, data"
+                  disabled={isLoading}
+                />
+                <p className="text-xs text-slate-500">
+                  Comma-separated list of skill tags.
+                </p>
               </div>
             </div>
           </div>

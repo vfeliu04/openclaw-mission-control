@@ -725,7 +725,7 @@ async def _notify_agent_on_task_assign(
     # Resolve which model to use based on task difficulty.
     resolved_difficulty = task.difficulty
     if resolved_difficulty == "auto":
-        classifier = DifficultyClassifierService(settings.anthropic_api_key)
+        classifier = DifficultyClassifierService(settings.gemini_api_key)
         resolved_difficulty = await classifier.classify(task.title, task.description)
     routed_model = resolve_model_for_difficulty(resolved_difficulty)  # type: ignore[arg-type]
     message = _assignment_notification_message(board=board, task=task, agent=agent)

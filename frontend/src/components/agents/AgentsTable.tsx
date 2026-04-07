@@ -142,6 +142,45 @@ export function AgentsTable({
         },
       },
       {
+        accessorKey: "agent_role",
+        header: "Role",
+        cell: ({ row }) => {
+          const role = row.original.agent_role ?? "specialist";
+          const isManager = role === "manager";
+          return (
+            <span
+              className={
+                isManager
+                  ? "inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-700"
+                  : "inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600"
+              }
+            >
+              {isManager ? "Manager" : "Specialist"}
+            </span>
+          );
+        },
+      },
+      {
+        accessorKey: "skill_tags",
+        header: "Skills",
+        cell: ({ row }) => {
+          const tags = row.original.skill_tags;
+          if (!tags || tags.length === 0) return null;
+          return (
+            <div className="flex flex-wrap gap-1">
+              {tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center rounded px-1 text-xs bg-blue-100 text-blue-700"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          );
+        },
+      },
+      {
         accessorKey: "last_seen_at",
         header: "Last seen",
         cell: ({ row }) =>

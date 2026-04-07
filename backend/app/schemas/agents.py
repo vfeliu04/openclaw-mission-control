@@ -101,6 +101,16 @@ class AgentBase(SQLModel):
         description="Template representing deeper agent instructions.",
         examples=["When critical blockers appear, escalate in plain language."],
     )
+    agent_role: str = Field(
+        default="specialist",
+        description="Role in the hierarchy: 'manager' orchestrates, 'specialist' executes.",
+        examples=["manager", "specialist"],
+    )
+    skill_tags: list[str] = Field(
+        default_factory=list,
+        description="Skill tags for routing, e.g. ['frontend', 'cybersecurity', 'data'].",
+        examples=[["frontend", "data"]],
+    )
 
     @field_validator("identity_template", "soul_template", mode="before")
     @classmethod
@@ -189,6 +199,16 @@ class AgentUpdate(SQLModel):
         default=None,
         description="Optional replacement soul template.",
         examples=["Escalate only after checking all known mitigations."],
+    )
+    agent_role: str | None = Field(
+        default=None,
+        description="Optional role update: 'manager' or 'specialist'.",
+        examples=["manager"],
+    )
+    skill_tags: list[str] | None = Field(
+        default=None,
+        description="Optional skill tags update.",
+        examples=[["frontend", "data"]],
     )
 
     @field_validator("identity_template", "soul_template", mode="before")
