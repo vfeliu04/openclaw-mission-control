@@ -1,182 +1,136 @@
-# OpenClaw Mission Control
+# OpenClaw Mission Control — Personal AI OS
 
-[![CI](https://github.com/abhi1693/openclaw-mission-control/actions/workflows/ci.yml/badge.svg)](https://github.com/abhi1693/openclaw-mission-control/actions/workflows/ci.yml) ![Static Badge](https://img.shields.io/badge/Join-Slack-active?style=flat&color=blue&link=https%3A%2F%2Fjoin.slack.com%2Ft%2Foc-mission-control%2Fshared_invite%2Fzt-3qpcm57xh-AI9C~smc3MDBVzEhvwf7gg)
+A personal AI assistant platform built on top of [OpenClaw](https://openclaw.ai).
+Mission Control is the control plane: it manages agents, boards, tasks, and gateway connections from a web UI, while the OpenClaw gateway runtime handles the actual AI execution and messaging channels.
 
-OpenClaw Mission Control is the centralized operations and governance platform for running OpenClaw across teams and organizations, with unified visibility, approval controls, and gateway-aware orchestration.
-It gives operators a single interface for work orchestration, agent and gateway management, approval-driven governance, and API-backed automation.
+## What it does
 
-<img width="1896" height="869" alt="Mission Control dashboard" src="https://github.com/user-attachments/assets/49a3c823-6aaf-4c56-8328-fb1485ee940f" />
-<img width="1896" height="858" alt="image" src="https://github.com/user-attachments/assets/2bfee13a-3dab-4f4a-9135-e47bb6949dcf" />
-<img width="1890" height="865" alt="image" src="https://github.com/user-attachments/assets/84c2e867-5dc7-4a36-9290-e29179d2a659" />
-<img width="1912" height="881" alt="image" src="https://github.com/user-attachments/assets/3bbd825c-9969-4bbf-bf31-987f9168f370" />
-<img width="1902" height="878" alt="image" src="https://github.com/user-attachments/assets/eea09632-60e4-4d6d-9e6e-bdfa0ac97630" />
+**WhatsApp is the main interface.** A master agent receives messages, handles them directly (calendar, email, quick tasks) or delegates to board-specific lead agents that coordinate specialist agents.
 
-## Platform overview
-
-Mission Control is designed to be the day-to-day operations surface for OpenClaw.
-Instead of splitting work across multiple tools, teams can plan, execute, review, and audit activity in one system.
-
-Core operational areas:
-
-- Work orchestration: manage organizations, board groups, boards, tasks, and tags.
-- Agent operations: create, inspect, and manage agent lifecycle from a unified control surface.
-- Governance and approvals: route sensitive actions through explicit approval flows.
-- Gateway management: connect and operate gateway integrations for distributed environments.
-- Activity visibility: review a timeline of system actions for faster debugging and accountability.
-- API-first model: support both web workflows and automation clients from the same platform.
-
-## Use cases
-
-- Multi-team agent operations: run multiple boards and board groups across organizations from a single control plane.
-- Human-in-the-loop execution: require approvals before sensitive actions and keep decision trails attached to work.
-- Distributed runtime control: connect gateways and operate remote execution environments without changing operator workflow.
-- Audit and incident review: use activity history to reconstruct what happened, when it happened, and who initiated it.
-- API-backed process integration: connect internal workflows and automation clients to the same operational model used in the UI.
-
-## What makes Mission Control different
-
-- Operations-first design: built for running agent work reliably, not just creating tasks.
-- Governance built in: approvals, auth modes, and clear control boundaries are first-class.
-- Gateway-aware orchestration: built to operate both local and connected runtime environments.
-- Unified UI and API model: operators and automation act on the same objects and lifecycle.
-- Team-scale structure: organizations, board groups, boards, tasks, tags, and users in one system of record.
-
-## Who it is for
-
-- Platform teams running OpenClaw in self-hosted or internal environments.
-- Operations and engineering teams that need clear approval and auditability controls.
-- Organizations that want API-accessible operations without losing a usable web UI.
-
-## Get started in minutes
-
-### Option A: One-command production-style bootstrap
-
-If you haven't cloned the repo yet, you can run the installer in one line:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/abhi1693/openclaw-mission-control/master/install.sh | bash
+```
+Vicente (WhatsApp)
+      ↕
+Mission Control Master Agent
+      ├── Direct: calendar, email, personal tasks, quick answers
+      └── Delegate: project work → Board Lead Agent
+                        ↕
+                  Specialist Agents (frontend, backend, research…)
 ```
 
-This clones the repository into `./openclaw-mission-control` if no local checkout is found in your current directory.
+## Features
 
-If you already cloned the repo:
+### Agent management
+- **Office Floor** — pixel art agents at desks showing live status (idle, working, offline), organised by board
+- **Multi-agent hierarchy** — Master → Board Lead → Specialists with automatic task delegation
+- **Board leads** — one coordinator per board, receives delegated tasks, breaks them into subtasks, assigns to specialists
+- **Difficulty-based model routing** — tasks auto-classified as easy/medium/hard and routed to Haiku / Sonnet / Opus accordingly
 
-```bash
-./install.sh
+### WhatsApp assistant
+- Responds in Spanish or English, always starts with 🤖
+- Creates tasks automatically from natural language ("remind me to…", "add a task for…")
+- Reads and searches Gmail on demand ("what's my last email?", "any emails from X?")
+- Sends emails including long-form content (stories, reports, essays)
+- Fetches calendar events from Apple Calendar (or Google Calendar as fallback)
+- **Morning briefing** (8:30 Madrid): calendar events + pending tasks
+- **Email digest** (8:00 Madrid): summary of overnight emails
+- **AI task generation**: "break down X into tasks for the Y board" → generates + creates on confirmation
+- Delegates project work to the right board lead, polls for status updates
+
+### Mission Control UI
+- **Dashboard** — throughput, workload, error rate, gateway health, session list
+- **Boards + Kanban** — tasks with status, priority, difficulty badge, custom fields
+- **Live Feed** — real-time activity stream and agent topology panel
+- **Approvals** — human-in-the-loop gate for sensitive agent actions
+- **Gateways** — connect and manage OpenClaw gateway instances
+  - Edit USER.md (agent profile) and SOUL.md (system prompt) live
+  - Regenerate SOUL.md from current boards and lead agents
+  - **Send trigger** — manually fire `morning_briefing` or `morning_email_digest` without waiting for the cron
+- **Task generation** — one-line prompt → AI-generated task breakdown with difficulty, skill tags, and dependencies
+- **Dark mode** — full dark theme across all pages
+
+### Infrastructure
+- `gog-proxy` — local HTTP proxy (port 8787, localhost only) wrapping the `gog` CLI for Gmail and Calendar access from Docker containers
+- Launchd crons on macOS for automated morning triggers
+- Compose-based Docker deployment (backend + frontend + Postgres + Redis)
+
+## Architecture
+
+```
+WhatsApp ──→ OpenClaw Gateway (port 18789) ──→ Main Agent
+                                                    │
+                                        Mission Control API (port 8000)
+                                                    │
+                                           Postgres + Redis
+                                                    │
+                                        Frontend UI (port 3000)
 ```
 
-The installer is interactive and will:
+The backend is a FastAPI app. The frontend is Next.js. Agent logic runs entirely inside the OpenClaw gateway — Mission Control stores state and provides the API agents call.
 
-- Ask for deployment mode (`docker` or `local`).
-- Install missing system dependencies when possible.
-- Generate and configure environment files.
-- Bootstrap and start the selected deployment mode.
+## Environment variables
 
-Installer support matrix: [`docs/installer-support.md`](./docs/installer-support.md)
+Key variables to configure (see `backend/.env.example` for the full list):
 
-### Option B: Manual setup
+| Variable | Description |
+|----------|-------------|
+| `LOCAL_AUTH_TOKEN` | Bearer token for local auth mode (min 50 chars) |
+| `ANTHROPIC_API_KEY` | For difficulty auto-classification (Haiku) |
+| `GEMINI_API_KEY` | For AI task generation (Gemini Flash) |
+| `MAIN_WHATSAPP_NUMBER` | WhatsApp number for the main agent session (e.g. `+34600000000`) |
+| `BASE_URL` | Public backend URL (default `http://localhost:8000`) |
 
-### Prerequisites
-
-- **Supported platforms**: Linux and macOS. On macOS, Docker mode requires [Docker Desktop](https://www.docker.com/products/docker-desktop/); local mode requires [Homebrew](https://brew.sh) and Node.js 22+.
-- Docker Engine
-- Docker Compose v2 (`docker compose`)
+## Get started
 
 ### 1. Configure environment
 
 ```bash
 cp .env.example .env
+cp backend/.env.example backend/.env
 ```
 
-Before startup:
+Edit both files — at minimum set `LOCAL_AUTH_TOKEN` (50+ chars) and `BASE_URL`.
 
-- Set `LOCAL_AUTH_TOKEN` to a non-placeholder value (minimum 50 characters) when `AUTH_MODE=local`.
-- Ensure `BASE_URL` matches the public backend origin if you are not using `http://localhost:8000`.
-- `NEXT_PUBLIC_API_URL=auto` (default) resolves to `http(s)://<current-host>:8000`.
-  - Set an explicit URL when your API is behind a reverse proxy or non-default port.
-
-### 2. Start Mission Control
+### 2. Start
 
 ```bash
 docker compose -f compose.yml --env-file .env up -d --build
 ```
-
-If you are iterating on the UI in Docker and want automatic frontend rebuilds on
-source changes, run:
-
-```bash
-docker compose -f compose.yml --env-file .env up --build --watch
-```
-
-Notes:
-
-- Compose Watch requires Docker Compose **2.22.0+**.
-- You can also run watch separately after startup:
-
-```bash
-docker compose -f compose.yml --env-file .env up -d --build
-docker compose -f compose.yml --env-file .env watch
-```
-
-After pulling new changes, rebuild and recreate all services:
-
-```bash
-docker compose -f compose.yml --env-file .env up -d --build --force-recreate
-```
-
-For a fully clean rebuild (no cached build layers):
-
-```bash
-docker compose -f compose.yml --env-file .env build --no-cache --pull
-docker compose -f compose.yml --env-file .env up -d --force-recreate
-```
-
-### 3. Open the application
 
 - Mission Control UI: http://localhost:3000
-- Backend health: http://localhost:8000/healthz
+- Backend API: http://localhost:8000
 
-### 4. Stop the stack
+### 3. Connect a gateway
+
+1. Install and start the [OpenClaw](https://openclaw.ai) gateway
+2. Go to **Gateways** in the UI → add your gateway URL and token
+3. Pair the gateway → agents can now be provisioned
+
+### 4. Pause (stop all AI API usage)
 
 ```bash
-docker compose -f compose.yml --env-file .env down
+# Stop the gateway (no more agent runs)
+docker compose stop openclaw-gateway
+
+# Unload morning crons
+launchctl unload ~/Library/LaunchAgents/com.vicentefeliu.mc-morning-briefing.plist
+launchctl unload ~/Library/LaunchAgents/com.vicentefeliu.mc-email-digest.plist
 ```
 
-## Authentication
+### 5. Resume
 
-Mission Control supports two authentication modes:
+```bash
+docker compose start openclaw-gateway
+launchctl load ~/Library/LaunchAgents/com.vicentefeliu.mc-morning-briefing.plist
+launchctl load ~/Library/LaunchAgents/com.vicentefeliu.mc-email-digest.plist
+```
 
-- `local`: shared bearer token mode (default for self-hosted use)
-- `clerk`: Clerk JWT mode
+Then go to **Gateways** → re-pair → click **Regenerate from boards**.
 
-Environment templates:
+## Upstream
 
-- Root: [`.env.example`](./.env.example)
-- Backend: [`backend/.env.example`](./backend/.env.example)
-- Frontend: [`frontend/.env.example`](./frontend/.env.example)
-
-## Documentation
-
-Complete guides for deployment, production, troubleshooting, and testing are in [`/docs`](./docs/).
-
-## Project status
-
-Mission Control is under active development.
-
-- Features and APIs may change between releases.
-- Validate and harden your configuration before production use.
-
-## Contributing
-
-Issues and pull requests are welcome.
-
-- [Contributing guide](./CONTRIBUTING.md)
-- [Open issues](https://github.com/abhi1693/openclaw-mission-control/issues)
+This is a personal fork of [abhi1693/openclaw-mission-control](https://github.com/abhi1693/openclaw-mission-control).
+The upstream project is a general-purpose multi-team operations platform. This fork extends it with personal assistant capabilities, WhatsApp integration, Gmail/Calendar tooling, and a multi-agent delegation hierarchy.
 
 ## License
 
-This project is licensed under the MIT License. See [`LICENSE`](./LICENSE).
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=abhi1693/openclaw-mission-control&type=date&legend=top-left)](https://www.star-history.com/#abhi1693/openclaw-mission-control&type=date&legend=top-left)
+MIT — see [`LICENSE`](./LICENSE).
